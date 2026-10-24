@@ -14,6 +14,8 @@ struct ContentView: View {
                 .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right") }
             WalletView()
                 .tabItem { Label("Wallet", systemImage: "wallet.bifold") }
+            UnlockView()
+                .tabItem { Label("Unlock", systemImage: "lock.open") }
         }
     }
 }
@@ -21,4 +23,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(ChatViewModel())
+        .environment(LockViewModel())
 }

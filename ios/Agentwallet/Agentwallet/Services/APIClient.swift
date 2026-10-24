@@ -43,4 +43,21 @@ struct APIClient {
 
         return try JSONDecoder().decode(ChatResponse.self, from: data)
     }
+
+    /// POST /api/unlock. Succeeds only on HTTP 200; any other status throws `APIError.badStatus`.
+    func requestUnlock() async throws {
+        guard let url = Config.unlockURL else {
+            throw APIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let (_, response) = try await session.data(for: request)
+
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard status == 200 else {
+            throw APIError.badStatus(status)
+        }
+    }
 }

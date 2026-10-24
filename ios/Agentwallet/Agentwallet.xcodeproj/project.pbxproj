@@ -6,8 +6,37 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		4F82C96A308C975A005F9C39 /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F82C969308C975A005F9C39 /* DeviceActivity.framework */; };
+		4F82C972308C975A005F9C39 /* SpendyMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F82C967308C975A005F9C39 /* SpendyMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4F82C970308C975A005F9C39 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4F4A5C45308C47EA00447F93 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F82C966308C975A005F9C39;
+			remoteInfo = SpendyMonitor;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4F82C977308C975A005F9C39 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				4F82C972308C975A005F9C39 /* SpendyMonitor.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		4F4A5C4D308C47EA00447F93 /* Agentwallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Agentwallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F82C967308C975A005F9C39 /* SpendyMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpendyMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F82C969308C975A005F9C39 /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -18,6 +47,21 @@
 			);
 			target = 4F4A5C4C308C47EA00447F93 /* Agentwallet */;
 		};
+		4F82C976308C975A005F9C39 /* Exceptions for "SpendyMonitor" folder in "SpendyMonitor" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4F82C966308C975A005F9C39 /* SpendyMonitor */;
+		};
+		4F82C979308C9BA8005F9C39 /* Exceptions for "Agentwallet" folder in "SpendyMonitor" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Services/LockShared.swift,
+				Services/ShieldService.swift,
+			);
+			target = 4F82C966308C975A005F9C39 /* SpendyMonitor */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -25,8 +69,17 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				4F4A5C5D308C73D600447F93 /* Exceptions for "Agentwallet" folder in "Agentwallet" target */,
+				4F82C979308C9BA8005F9C39 /* Exceptions for "Agentwallet" folder in "SpendyMonitor" target */,
 			);
 			path = Agentwallet;
+			sourceTree = "<group>";
+		};
+		4F82C96B308C975A005F9C39 /* SpendyMonitor */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4F82C976308C975A005F9C39 /* Exceptions for "SpendyMonitor" folder in "SpendyMonitor" target */,
+			);
+			path = SpendyMonitor;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -37,6 +90,12 @@
 			files = (
 			);
 		};
+		4F82C964308C975A005F9C39 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				4F82C96A308C975A005F9C39 /* DeviceActivity.framework in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -44,6 +103,8 @@
 			isa = PBXGroup;
 			children = (
 				4F4A5C4F308C47EA00447F93 /* Agentwallet */,
+				4F82C96B308C975A005F9C39 /* SpendyMonitor */,
+				4F82C968308C975A005F9C39 /* Frameworks */,
 				4F4A5C4E308C47EA00447F93 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -52,8 +113,17 @@
 			isa = PBXGroup;
 			children = (
 				4F4A5C4D308C47EA00447F93 /* Agentwallet.app */,
+				4F82C967308C975A005F9C39 /* SpendyMonitor.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4F82C968308C975A005F9C39 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4F82C969308C975A005F9C39 /* DeviceActivity.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -66,8 +136,12 @@
 				4F4A5C49308C47EA00447F93 /* Sources */,
 				4F4A5C4A308C47EA00447F93 /* Frameworks */,
 				4F4A5C4B308C47EA00447F93 /* Resources */,
+				4F82C977308C975A005F9C39 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				4F82C971308C975A005F9C39 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4F4A5C4F308C47EA00447F93 /* Agentwallet */,
@@ -76,6 +150,24 @@
 			productName = Agentwallet;
 			productReference = 4F4A5C4D308C47EA00447F93 /* Agentwallet.app */;
 			productType = "com.apple.product-type.application";
+		};
+		4F82C966308C975A005F9C39 /* SpendyMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4F82C973308C975A005F9C39 /* Build configuration list for PBXNativeTarget "SpendyMonitor" */;
+			buildPhases = (
+				4F82C963308C975A005F9C39 /* Sources */,
+				4F82C964308C975A005F9C39 /* Frameworks */,
+				4F82C965308C975A005F9C39 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				4F82C96B308C975A005F9C39 /* SpendyMonitor */,
+			);
+			name = SpendyMonitor;
+			productName = SpendyMonitor;
+			productReference = 4F82C967308C975A005F9C39 /* SpendyMonitor.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -88,6 +180,9 @@
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					4F4A5C4C308C47EA00447F93 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					4F82C966308C975A005F9C39 = {
 						CreatedOnToolsVersion = 27.1;
 					};
 				};
@@ -107,12 +202,18 @@
 			projectRoot = "";
 			targets = (
 				4F4A5C4C308C47EA00447F93 /* Agentwallet */,
+				4F82C966308C975A005F9C39 /* SpendyMonitor */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		4F4A5C4B308C47EA00447F93 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		4F82C965308C975A005F9C39 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -125,7 +226,20 @@
 			files = (
 			);
 		};
+		4F82C963308C975A005F9C39 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4F82C971308C975A005F9C39 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F82C966308C975A005F9C39 /* SpendyMonitor */;
+			targetProxy = 4F82C970308C975A005F9C39 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		4F4A5C56308C47ED00447F93 /* Debug configuration for PBXProject "Agentwallet" */ = {
@@ -273,6 +387,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = FB.Agentwallet;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -307,9 +422,70 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = FB.Agentwallet;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		4F82C974308C975A005F9C39 /* Debug configuration for PBXNativeTarget "SpendyMonitor" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SpendyMonitor/SpendyMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GDL8R6788;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpendyMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpendyMonitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = FB.Agentwallet.SpendyMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4F82C975308C975A005F9C39 /* Release configuration for PBXNativeTarget "SpendyMonitor" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SpendyMonitor/SpendyMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6GDL8R6788;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpendyMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpendyMonitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = FB.Agentwallet.SpendyMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -333,6 +509,14 @@
 			buildConfigurations = (
 				4F4A5C59308C47ED00447F93 /* Debug configuration for PBXNativeTarget "Agentwallet" */,
 				4F4A5C5A308C47ED00447F93 /* Release configuration for PBXNativeTarget "Agentwallet" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4F82C973308C975A005F9C39 /* Build configuration list for PBXNativeTarget "SpendyMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F82C974308C975A005F9C39 /* Debug configuration for PBXNativeTarget "SpendyMonitor" */,
+				4F82C975308C975A005F9C39 /* Release configuration for PBXNativeTarget "SpendyMonitor" */,
 			);
 			defaultConfigurationName = Release;
 		};
