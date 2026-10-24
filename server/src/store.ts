@@ -5,7 +5,9 @@ import express from "express";
 import { createX402Server } from "@coinbase/cdp-sdk/x402";
 import { paymentMiddlewareFromHTTPServer } from "@x402/express";
 import { runAgent } from "./agent.js";
-import { ITEMS, findItem, formatUsd } from "./catalog.js";
+import { ITEMS, UNLOCK_FEE, findItem, formatUsd } from "./catalog.js";
+import { unlock } from "./unlock.js";
+import { getBalance, getHeld, getPurchases } from "./wallet.js";
 
 const PORT = 3000;
 const BASE_SEPOLIA = "eip155:84532";
@@ -15,12 +17,19 @@ const BASE_SEPOLIA = "eip155:84532";
 const x402Server = await createX402Server({
   environment: "development",
   payToConfig: { type: "eoa", accountName: "store-receiver" },
-  routes: Object.fromEntries(
-    ITEMS.filter((item) => item.method === "x402").map((item) => [
-      `GET ${item.path}`,
-      { price: formatUsd(item.priceCents), networks: [BASE_SEPOLIA], description: item.name },
-    ]),
-  ),
+  routes: {
+    ...Object.fromEntries(
+      ITEMS.filter((item) => item.method === "x402").map((item) => [
+        `GET ${item.path}`,
+        { price: formatUsd(item.priceCents), networks: [BASE_SEPOLIA], description: item.name },
+      ]),
+    ),
+    [`GET ${UNLOCK_FEE.path}`]: {
+      price: formatUsd(UNLOCK_FEE.priceCents),
+      networks: [BASE_SEPOLIA],
+      description: UNLOCK_FEE.name,
+    },
+  },
 });
 
 const sneakers = findItem("sneakers")!;
@@ -88,6 +97,21 @@ app.get("/api/items/market-report", (_req, res) => {
       "USDC held at $1.00.",
     ],
   });
+});
+
+// x402-protected: the payment middleware only lets this through after the fee is paid.
+app.get(UNLOCK_FEE.path, (_req, res) => {
+  res.json({ ok: true });
+});
+
+// Called by the iOS app. Not x402-protected; the server pays the unlock fee itself.
+app.post("/api/unlock", async (_req, res) => {
+  const result = await unlock();
+  res.status(result.status).json(result.body);
+});
+
+app.get("/api/wallet", (_req, res) => {
+  res.json({ balance: getBalance(), held: getHeld(), purchases: getPurchases() });
 });
 
 app.get("/checkout", (_req, res) => {

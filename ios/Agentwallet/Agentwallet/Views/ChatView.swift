@@ -7,6 +7,7 @@ import SwiftUI
 
 struct ChatView: View {
     @Environment(ChatViewModel.self) private var viewModel
+    @FocusState private var isInputFocused: Bool
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -32,6 +33,11 @@ struct ChatView: View {
                         }
                         .padding()
                     }
+                    // Swipe down on the list to drag the keyboard away.
+                    .scrollDismissesKeyboard(.interactively)
+                    // Make empty space in the list tappable too, then dismiss on tap.
+                    .contentShape(Rectangle())
+                    .onTapGesture { isInputFocused = false }
                     .onChange(of: viewModel.messages.count) {
                         withAnimation {
                             proxy.scrollTo(viewModel.messages.last?.id, anchor: .bottom)
@@ -50,6 +56,7 @@ struct ChatView: View {
                     TextField("Ask the agent to buy something…", text: $viewModel.draft, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...4)
+                        .focused($isInputFocused)
                         .onSubmit(sendMessage)
                     Button("Send", action: sendMessage)
                         .buttonStyle(.borderedProminent)
@@ -62,6 +69,8 @@ struct ChatView: View {
     }
 
     private func sendMessage() {
+        guard viewModel.canSend else { return }
+        isInputFocused = false
         Task { await viewModel.send() }
     }
 }

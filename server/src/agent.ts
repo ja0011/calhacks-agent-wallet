@@ -1,44 +1,20 @@
 // AI shopping agent: a Claude tool-use loop that can list store items and pay for
 // x402 items with the CDP buyer wallet.
 import Anthropic from "@anthropic-ai/sdk";
-import { CdpX402Client, SpendControlError } from "@coinbase/cdp-sdk/x402";
-import { wrapFetchWithPayment } from "@x402/fetch";
-import { ITEMS, findItem, formatUsd } from "./catalog.js";
+import { SpendControlError } from "@coinbase/cdp-sdk/x402";
+import { ITEMS, STORE_URL, findItem, formatUsd } from "./catalog.js";
+import {
+  fetchWithPayment,
+  getBalance,
+  getBalanceCents,
+  getHeld,
+  getPurchases,
+  recordPurchase,
+  spend,
+} from "./wallet.js";
 
 const MODEL = "claude-sonnet-5-5";
 const MAX_TURNS = 10;
-const STORE_URL = "http://localhost:3000";
-
-// USDC on Base Sepolia has 6 decimals, so $0.01 = 10_000 atomic units.
-const USDC_BASE_SEPOLIA = "0x036cbd53842c5426634e7929541ec2318f3dcf7e";
-const ATOMIC_PER_CENT = 10_000n;
-
-// Simulated wallet balance for the session; not read from the chain yet.
-const STARTING_BALANCE_CENTS = 100;
-
-export type Purchase = {
-  item: string;
-  amount: string;
-  method: "x402" | "One-time card";
-};
-
-let balanceCents = STARTING_BALANCE_CENTS;
-const purchases: Purchase[] = [];
-
-export const getBalance = () => formatUsd(balanceCents);
-export const getPurchases = () => [...purchases];
-
-// Without a maxCumulativeSpendWindow, the cumulative cap covers the client's whole
-// lifetime, i.e. one store-server session.
-const x402Client = new CdpX402Client({
-  environment: "development",
-  spendControls: {
-    maxAmountPerPayment: { atomic: 10n * ATOMIC_PER_CENT, asset: USDC_BASE_SEPOLIA },
-    maxCumulativeSpend: { atomic: 100n * ATOMIC_PER_CENT, asset: USDC_BASE_SEPOLIA },
-    allowedNetworks: ["eip155:84532"],
-  },
-});
-const fetchWithPayment = wrapFetchWithPayment(globalThis.fetch, x402Client);
 
 let anthropic: Anthropic | undefined;
 const getAnthropic = () => (anthropic ??= new Anthropic());
@@ -92,7 +68,7 @@ async function buyWithX402(itemId: unknown) {
   if (item.method !== "x402") {
     return { ok: false, error: `${item.name} cannot be bought with x402.` };
   }
-  if (item.priceCents > balanceCents) {
+  if (item.priceCents > getBalanceCents()) {
     return { ok: false, error: `Insufficient balance: ${getBalance()} available, ${formatUsd(item.priceCents)} needed.` };
   }
 
@@ -102,8 +78,8 @@ async function buyWithX402(itemId: unknown) {
       return { ok: false, error: `Store returned HTTP ${response.status}.` };
     }
     const content = await response.json();
-    balanceCents -= item.priceCents;
-    purchases.push({ item: item.name, amount: formatUsd(item.priceCents), method: "x402" });
+    spend(item.priceCents);
+    recordPurchase({ item: item.name, amount: formatUsd(item.priceCents), method: "x402" });
     return { ok: true, item: item.name, paid: formatUsd(item.priceCents), balance: getBalance(), content };
   } catch (error) {
     if (error instanceof SpendControlError) {
@@ -150,7 +126,7 @@ export async function runAgent(message: string) {
         .filter((block): block is Anthropic.TextBlock => block.type === "text")
         .map((block) => block.text)
         .join("\n");
-      return { reply, balance: getBalance(), purchases: getPurchases() };
+      return { reply, balance: getBalance(), held: getHeld(), purchases: getPurchases() };
     }
 
     const results: Anthropic.ToolResultBlockParam[] = [];
@@ -170,6 +146,7 @@ export async function runAgent(message: string) {
   return {
     reply: "Stopped: the agent used too many steps without finishing.",
     balance: getBalance(),
+    held: getHeld(),
     purchases: getPurchases(),
   };
 }

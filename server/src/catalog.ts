@@ -27,6 +27,16 @@ export const ITEMS: Item[] = [
   },
 ];
 
+// x402-protected fee the server pays to itself when the iOS app asks to unlock.
+// Not in ITEMS, so it isn't shown in the store or offered to the agent.
+export const UNLOCK_FEE = {
+  name: "Unlock fee",
+  priceCents: 5,
+  path: "/api/unlock-fee",
+};
+
+export const STORE_URL = "http://localhost:3000";
+
 export const findItem = (id: string) => ITEMS.find((item) => item.id === id);
 
 export const formatUsd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
