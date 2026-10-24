@@ -1,17 +1,11 @@
 // Fake store with one x402-protected API route, based on Coinbase's seller quickstart:
 // https://docs.cdp.coinbase.com/x402/seller/quickstart
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
+import "./env.js";
 import express from "express";
 import { createX402Server } from "@coinbase/cdp-sdk/x402";
 import { paymentMiddlewareFromHTTPServer } from "@x402/express";
-
-// Load CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET from server/.env,
-// regardless of the directory the script is launched from.
-dotenv.config({
-  path: fileURLToPath(new URL("../.env", import.meta.url)),
-  quiet: true,
-});
+import { runAgent } from "./agent.js";
+import { ITEMS, findItem, formatUsd } from "./catalog.js";
 
 const PORT = 3000;
 const BASE_SEPOLIA = "eip155:84532";
@@ -21,17 +15,19 @@ const BASE_SEPOLIA = "eip155:84532";
 const x402Server = await createX402Server({
   environment: "development",
   payToConfig: { type: "eoa", accountName: "store-receiver" },
-  routes: {
-    "GET /api/items/market-report": {
-      price: "$0.01",
-      networks: [BASE_SEPOLIA],
-      description: "Market Report",
-    },
-  },
+  routes: Object.fromEntries(
+    ITEMS.filter((item) => item.method === "x402").map((item) => [
+      `GET ${item.path}`,
+      { price: formatUsd(item.priceCents), networks: [BASE_SEPOLIA], description: item.name },
+    ]),
+  ),
 });
+
+const sneakers = findItem("sneakers")!;
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 app.use(paymentMiddlewareFromHTTPServer(x402Server));
 
 const escapeHtml = (value: string) =>
@@ -63,24 +59,22 @@ ${body}
 </html>`;
 
 app.get("/", (_req, res) => {
-  res.send(
-    page(
-      "Fake Store",
-      `<h1>Fake Store</h1>
-<div class="item" id="market-report">
-  <h2>Market Report</h2>
-  <p class="price">$0.01</p>
+  const cards = ITEMS.map((item) =>
+    item.method === "x402"
+      ? `<div class="item" id="${item.id}">
+  <h2>${item.name}</h2>
+  <p class="price">${formatUsd(item.priceCents)}</p>
   <p class="muted">Paid with x402 (USDC on Base Sepolia).
-    Endpoint: <code>GET /api/items/market-report</code></p>
-</div>
-<div class="item" id="sneakers">
-  <h2>Sneakers</h2>
-  <p class="price">$59.00</p>
+    Endpoint: <code>GET ${item.path}</code></p>
+</div>`
+      : `<div class="item" id="${item.id}">
+  <h2>${item.name}</h2>
+  <p class="price">${formatUsd(item.priceCents)}</p>
   <p class="muted">Paid with the card checkout form.</p>
-  <a class="button" href="/checkout">Buy Sneakers</a>
+  <a class="button" href="${item.path}">Buy ${item.name}</a>
 </div>`,
-    ),
-  );
+  ).join("\n");
+  res.send(page("Fake Store", `<h1>Fake Store</h1>\n${cards}`));
 });
 
 app.get("/api/items/market-report", (_req, res) => {
@@ -101,7 +95,7 @@ app.get("/checkout", (_req, res) => {
     page(
       "Checkout - Sneakers",
       `<h1>Checkout</h1>
-<p>Item: <strong>Sneakers</strong>, total <strong>$59.00</strong></p>
+<p>Item: <strong>${sneakers.name}</strong>, total <strong>${formatUsd(sneakers.priceCents)}</strong></p>
 <form method="post" action="/api/checkout">
   <input type="hidden" name="item" value="sneakers">
 
@@ -131,10 +125,24 @@ app.post("/api/checkout", (req, res) => {
     page(
       "Payment successful",
       `<h1>Payment successful</h1>
-<p>Thanks${name ? `, ${escapeHtml(name)}` : ""}! Your order for <strong>Sneakers</strong> ($59.00) is confirmed.</p>
+<p>Thanks${name ? `, ${escapeHtml(name)}` : ""}! Your order for <strong>${sneakers.name}</strong> (${formatUsd(sneakers.priceCents)}) is confirmed.</p>
 <p><a href="/">Back to store</a></p>`,
     ),
   );
+});
+
+app.post("/api/chat", async (req, res) => {
+  const message = req.body?.message;
+  if (typeof message !== "string" || !message.trim()) {
+    res.status(400).json({ error: 'Send JSON like { "message": "Buy the market report" }.' });
+    return;
+  }
+  try {
+    res.json(await runAgent(message));
+  } catch (error) {
+    console.error("Agent failed:", error instanceof Error ? error.message : "unknown error");
+    res.status(500).json({ error: "The agent failed. Check the server logs." });
+  }
 });
 
 app.listen(PORT, () => {
