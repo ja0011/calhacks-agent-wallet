@@ -22,7 +22,7 @@ console.log(`Paying from ${evmAddress}`);
 
 // Wrapped fetch handles the 402 response, signs the payment, and retries.
 const fetchWithPayment = wrapFetchWithPayment(globalThis.fetch, client);
-const response = await fetchWithPayment("https://x402.vercel.app/protected");
+const response = await fetchWithPayment("http://localhost:3000/api/items/market-report");
 
 console.log(`HTTP ${response.status}`);
 console.log(await response.text());

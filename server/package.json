@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "buyer-test": "tsx src/buyer-test.ts"
+    "buyer-test": "tsx src/buyer-test.ts",
+    "store": "tsx src/store.ts"
   },
   "keywords": [],
   "author": "",
@@ -15,12 +16,15 @@
     "@coinbase/cdp-sdk": "^1.60.0",
     "@x402/core": "^2.28.0",
     "@x402/evm": "^2.28.0",
+    "@x402/express": "^2.28.0",
     "@x402/extensions": "^2.28.0",
     "@x402/fetch": "^2.28.0",
     "@x402/svm": "^2.28.0",
-    "dotenv": "^18.0.9"
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
