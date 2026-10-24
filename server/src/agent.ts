@@ -7,11 +7,12 @@ import { buyWithOneTimeCard } from "./one-time-card.js";
 import {
   fetchWithPayment,
   getBalance,
-  getBalanceCents,
+  getBalanceFields,
   getHeld,
+  getOnchainUsdcCents,
   getPurchases,
+  invalidateBalanceCache,
   recordPurchase,
-  spend,
 } from "./wallet.js";
 
 const MODEL = "claude-sonnet-5-5";
@@ -71,8 +72,9 @@ async function buyWithX402(itemId: unknown) {
   if (item.method !== "x402") {
     return { ok: false, error: `${item.name} cannot be bought with x402.` };
   }
-  if (item.priceCents > getBalanceCents()) {
-    return { ok: false, error: `Insufficient balance: ${getBalance()} available, ${formatUsd(item.priceCents)} needed.` };
+  const balanceCents = await getOnchainUsdcCents();
+  if (item.priceCents > balanceCents) {
+    return { ok: false, error: `Insufficient balance: ${formatUsd(balanceCents)} available, ${formatUsd(item.priceCents)} needed.` };
   }
 
   try {
@@ -81,9 +83,10 @@ async function buyWithX402(itemId: unknown) {
       return { ok: false, error: `Store returned HTTP ${response.status}.` };
     }
     const content = await response.json();
-    spend(item.priceCents);
+    // The payment moved real USDC, so the on-chain balance drops by itself.
+    invalidateBalanceCache();
     recordPurchase({ item: item.name, amount: formatUsd(item.priceCents), method: "x402" });
-    return { ok: true, item: item.name, paid: formatUsd(item.priceCents), balance: getBalance(), content };
+    return { ok: true, item: item.name, paid: formatUsd(item.priceCents), content };
   } catch (error) {
     if (error instanceof SpendControlError) {
       return { ok: false, error: `Blocked by spend controls (${error.code}): ${error.message}` };
@@ -99,7 +102,7 @@ async function runTool(name: string, input: Record<string, unknown>) {
     case "buy_with_x402":
       return buyWithX402(input.item_id);
     case "get_balance":
-      return { balance: getBalance() };
+      return { balance: await getBalance(), source: "onchain USDC on Base Sepolia" };
     case "buy_with_one_time_card":
       return buyWithOneTimeCard(input.item_id);
     default:
@@ -130,7 +133,7 @@ export async function runAgent(message: string) {
         .filter((block): block is Anthropic.TextBlock => block.type === "text")
         .map((block) => block.text)
         .join("\n");
-      return { reply, balance: getBalance(), held: getHeld(), purchases: getPurchases() };
+      return { reply, ...(await getBalanceFields()), held: getHeld(), purchases: getPurchases() };
     }
 
     const results: Anthropic.ToolResultBlockParam[] = [];
@@ -149,7 +152,7 @@ export async function runAgent(message: string) {
 
   return {
     reply: "Stopped: the agent used too many steps without finishing.",
-    balance: getBalance(),
+    ...(await getBalanceFields()),
     held: getHeld(),
     purchases: getPurchases(),
   };

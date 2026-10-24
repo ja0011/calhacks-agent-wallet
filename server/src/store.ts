@@ -9,7 +9,7 @@ import { ITEMS, UNLOCK_FEE, findItem, formatUsd } from "./catalog.js";
 import { chargeAtCheckout, retryLastCard } from "./one-time-card.js";
 import { onrampRouter } from "./onramp.js";
 import { unlock } from "./unlock.js";
-import { getBalance, getHeld, getPurchases } from "./wallet.js";
+import { getBalanceFields, getHeld, getPurchases } from "./wallet.js";
 
 const PORT = 3000;
 const BASE_SEPOLIA = "eip155:84532";
@@ -112,8 +112,11 @@ app.post("/api/unlock", async (_req, res) => {
 
 app.use("/api/onramp", onrampRouter);
 
-app.get("/api/wallet", (_req, res) => {
-  res.json({ balance: getBalance(), held: getHeld(), purchases: getPurchases() });
+app.get("/api/wallet", async (_req, res) => {
+  const balanceFields = await getBalanceFields();
+  res
+    .status(balanceFields.balance === null ? 503 : 200)
+    .json({ ...balanceFields, held: getHeld(), purchases: getPurchases() });
 });
 
 const findCardItem = (id: unknown) => {

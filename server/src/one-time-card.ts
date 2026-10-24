@@ -4,7 +4,7 @@
 import Stripe from "stripe";
 import { findItem, formatUsd, type Item } from "./catalog.js";
 import { fillCheckout } from "./checkout-bot.js";
-import { getBalance, getBalanceCents, recordPurchase, spend } from "./wallet.js";
+import { getOnchainUsdcCents, recordPurchase } from "./wallet.js";
 
 type Outcome = "pending" | "approved" | "declined";
 
@@ -122,8 +122,9 @@ export async function buyWithOneTimeCard(itemId: unknown) {
   const item = typeof itemId === "string" ? findItem(itemId) : undefined;
   if (!item) return { ok: false, error: `Unknown item id: ${String(itemId)}` };
   if (item.method !== "card") return { ok: false, error: `${item.name} cannot be bought with a card.` };
-  if (item.priceCents > getBalanceCents()) {
-    return { ok: false, error: `Insufficient balance: ${getBalance()} available, ${formatUsd(item.priceCents)} needed.` };
+  const balanceCents = await getOnchainUsdcCents();
+  if (item.priceCents > balanceCents) {
+    return { ok: false, error: `Insufficient balance: ${formatUsd(balanceCents)} available, ${formatUsd(item.priceCents)} needed.` };
   }
 
   let record: CardRecord | undefined;
@@ -151,7 +152,6 @@ export async function buyWithOneTimeCard(itemId: unknown) {
     brand: record.brand,
     outcome: record.outcome === "pending" ? "error" : record.outcome,
     ...(record.declineReason ? { declineReason: record.declineReason } : {}),
-    balance: getBalance(),
   };
 }
 
@@ -188,9 +188,8 @@ export async function chargeAtCheckout({ number, expiry, cvc, itemId }: Checkout
   await getStripe().testHelpers.issuing.authorizations.capture(authorization.id);
   await cancelCard(record.cardId);
 
-  // The USDC funding of this card is simulated: the price comes out of the in-memory
-  // USDC balance, while Stripe charges its own test-mode Issuing balance.
-  spend(item.priceCents);
+  // The USDC funding of this card is simulated: Stripe charges its own test-mode balance,
+  // and no USDC moves on-chain, so the on-chain balance doesn't drop for card purchases.
   recordPurchase({ item: item.name, amount: formatUsd(item.priceCents), method: "One-time card" });
   record.outcome = "approved";
   lastUsedCardId = record.cardId;
