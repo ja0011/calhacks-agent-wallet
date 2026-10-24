@@ -6,6 +6,7 @@ import { createX402Server } from "@coinbase/cdp-sdk/x402";
 import { paymentMiddlewareFromHTTPServer } from "@x402/express";
 import { runAgent } from "./agent.js";
 import { ITEMS, UNLOCK_FEE, findItem, formatUsd } from "./catalog.js";
+import { chargeAtCheckout, retryLastCard } from "./one-time-card.js";
 import { unlock } from "./unlock.js";
 import { getBalance, getHeld, getPurchases } from "./wallet.js";
 
@@ -31,8 +32,6 @@ const x402Server = await createX402Server({
     },
   },
 });
-
-const sneakers = findItem("sneakers")!;
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -114,14 +113,24 @@ app.get("/api/wallet", (_req, res) => {
   res.json({ balance: getBalance(), held: getHeld(), purchases: getPurchases() });
 });
 
-app.get("/checkout", (_req, res) => {
+const findCardItem = (id: unknown) => {
+  const item = typeof id === "string" ? findItem(id) : undefined;
+  return item?.method === "card" ? item : undefined;
+};
+
+app.get("/checkout", (req, res) => {
+  const item = findCardItem(req.query.item);
+  if (!item) {
+    res.status(404).send(page("Not found", `<h1>Item not found</h1><p><a href="/">Back to store</a></p>`));
+    return;
+  }
   res.send(
     page(
-      "Checkout - Sneakers",
+      `Checkout - ${item.name}`,
       `<h1>Checkout</h1>
-<p>Item: <strong>${sneakers.name}</strong>, total <strong>${formatUsd(sneakers.priceCents)}</strong></p>
+<p>Item: <strong>${item.name}</strong>, total <strong>${formatUsd(item.priceCents)}</strong></p>
 <form method="post" action="/api/checkout">
-  <input type="hidden" name="item" value="sneakers">
+  <input type="hidden" name="item" value="${item.id}">
 
   <label for="name">Name on card</label>
   <input id="name" name="name" type="text" autocomplete="cc-name" required>
@@ -141,18 +150,52 @@ app.get("/checkout", (_req, res) => {
   );
 });
 
-app.post("/api/checkout", (req, res) => {
-  // TODO: verify the card with a real payment processor. For now any input is accepted,
-  // and card details are never logged or stored.
-  const name = typeof req.body?.name === "string" ? req.body.name : "";
-  res.send(
-    page(
-      "Payment successful",
-      `<h1>Payment successful</h1>
-<p>Thanks${name ? `, ${escapeHtml(name)}` : ""}! Your order for <strong>${sneakers.name}</strong> (${formatUsd(sneakers.priceCents)}) is confirmed.</p>
+// Never log the request body: it contains the card number and CVC.
+app.post("/api/checkout", async (req, res) => {
+  const field = (key: string) => (typeof req.body?.[key] === "string" ? (req.body[key] as string) : "");
+  const item = findCardItem(field("item"));
+  const name = field("name");
+  if (!item) {
+    res.status(404).send(page("Not found", `<h1>Item not found</h1><p><a href="/">Back to store</a></p>`));
+    return;
+  }
+
+  try {
+    const result = await chargeAtCheckout({
+      number: field("cardNumber"),
+      expiry: field("expiry"),
+      cvc: field("cvc"),
+      itemId: item.id,
+    });
+    if (!result.approved) {
+      res.status(402).send(
+        page(
+          "Payment declined",
+          `<h1 id="result" data-outcome="declined">Payment declined</h1>
+<p>Reason: <code>${escapeHtml(result.reason ?? "declined")}</code></p>
 <p><a href="/">Back to store</a></p>`,
-    ),
-  );
+        ),
+      );
+      return;
+    }
+    res.send(
+      page(
+        "Payment successful",
+        `<h1 id="result" data-outcome="approved">Payment successful</h1>
+<p>Thanks${name ? `, ${escapeHtml(name)}` : ""}! Your order for <strong>${item.name}</strong> (${formatUsd(item.priceCents)}) is confirmed.</p>
+<p><a href="/">Back to store</a></p>`,
+      ),
+    );
+  } catch (error) {
+    console.error("Checkout charge failed:", error instanceof Error ? error.message : "unknown error");
+    res.status(502).send(page("Payment error", `<h1 id="result" data-outcome="error">Payment error</h1>`));
+  }
+});
+
+// Demo: charges the last used one-time card again. It was cancelled, so it should decline.
+app.get("/api/card-demo/retry", async (_req, res) => {
+  const result = await retryLastCard();
+  res.status(result.ok ? 200 : 404).json(result);
 });
 
 app.post("/api/chat", async (req, res) => {

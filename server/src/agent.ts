@@ -1,8 +1,9 @@
-// AI shopping agent: a Claude tool-use loop that can list store items and pay for
-// x402 items with the CDP buyer wallet.
+// AI shopping agent: a Claude tool-use loop that can list store items, pay for x402
+// items with the CDP buyer wallet, and pay for card items with a one-time Stripe card.
 import Anthropic from "@anthropic-ai/sdk";
 import { SpendControlError } from "@coinbase/cdp-sdk/x402";
 import { ITEMS, STORE_URL, findItem, formatUsd } from "./catalog.js";
+import { buyWithOneTimeCard } from "./one-time-card.js";
 import {
   fetchWithPayment,
   getBalance,
@@ -48,14 +49,16 @@ const tools: Anthropic.Tool[] = [
     input_schema: { type: "object", properties: {} },
   },
   {
-    // STUB: one-time card payments are not implemented yet.
     name: "buy_with_one_time_card",
     description:
-      'Buys one store item whose payment method is "card" using a one-time virtual card. Not implemented yet.',
+      'Buys one store item whose payment method is "card". Issues a single-use virtual card limited to the item price, ' +
+      "fills in the store's checkout form in a browser, and cancels the card afterwards. The price comes out of the " +
+      "wallet balance. Returns the card's last 4 digits, brand, and the outcome (approved, declined, or error); " +
+      "you never see the full card number. Only call this when the user asked to buy the item.",
     input_schema: {
       type: "object",
       properties: {
-        item_id: { type: "string", description: 'The item id from list_items, e.g. "sneakers".' },
+        item_id: { type: "string", description: 'The item id from list_items, e.g. "sticker-pack".' },
       },
       required: ["item_id"],
     },
@@ -98,8 +101,7 @@ async function runTool(name: string, input: Record<string, unknown>) {
     case "get_balance":
       return { balance: getBalance() };
     case "buy_with_one_time_card":
-      // TODO: implement one-time card purchases.
-      return { ok: false, error: "not implemented yet" };
+      return buyWithOneTimeCard(input.item_id);
     default:
       return { ok: false, error: `Unknown tool: ${name}` };
   }
@@ -115,7 +117,9 @@ export async function runAgent(message: string) {
       system:
         "You are a shopping agent for a small online store. Use the tools to look up items, " +
         "check the wallet balance, and buy what the user asks for. Never buy anything the user " +
-        "did not ask for. Keep replies short and say what was bought and for how much.",
+        'did not ask for. Prefer x402: if an item\'s method is "x402", use buy_with_x402. Use ' +
+        'buy_with_one_time_card only for items whose method is "card". Keep replies short and ' +
+        "say what was bought, for how much, and how it was paid.",
       tools,
       messages,
     });

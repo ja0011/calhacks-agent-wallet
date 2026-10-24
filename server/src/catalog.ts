@@ -1,4 +1,5 @@
 // Store catalog shared by the store pages, the x402 route config, and the agent.
+// All prices are integer cents.
 export type PaymentMethod = "x402" | "card";
 
 export type Item = {
@@ -19,11 +20,11 @@ export const ITEMS: Item[] = [
     path: "/api/items/market-report",
   },
   {
-    id: "sneakers",
-    name: "Sneakers",
-    priceCents: 5900,
+    id: "sticker-pack",
+    name: "Sticker pack",
+    priceCents: 3,
     method: "card",
-    path: "/checkout",
+    path: "/checkout?item=sticker-pack",
   },
 ];
 
@@ -31,7 +32,7 @@ export const ITEMS: Item[] = [
 // Not in ITEMS, so it isn't shown in the store or offered to the agent.
 export const UNLOCK_FEE = {
   name: "Unlock fee",
-  priceCents: 5,
+  priceCents: 4,
   path: "/api/unlock-fee",
 };
 
