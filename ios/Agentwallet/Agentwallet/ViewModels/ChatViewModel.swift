@@ -45,4 +45,11 @@ final class ChatViewModel {
             messages.append(ChatMessage(role: .error, text: "Request failed: \(error.localizedDescription)"))
         }
     }
+
+    /// Reloads the balance and purchases from GET /api/wallet.
+    func refreshWallet() async {
+        guard let wallet = try? await client.fetchWallet() else { return }
+        balance = wallet.balance
+        purchases = wallet.purchases
+    }
 }

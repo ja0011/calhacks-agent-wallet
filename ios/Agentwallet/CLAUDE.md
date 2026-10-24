@@ -3,7 +3,7 @@
 SwiftUI client for the local agent-wallet server.
 
 ## Conventions
-- SwiftUI only, MVVM, Swift concurrency (async/await). No Combine, no third-party packages.
+- SwiftUI only, MVVM, Swift concurrency (async/await). No Combine. The only third-party package is Crossmint's `CrossmintCheckout` (from `crossmint-checkout-swift`), used by `Views/OnrampCheckoutView.swift` for the "Add money" onramp.
 - iOS 17+ APIs (`@Observable`, `@Environment(Type.self)`).
 - Layout under `Agentwallet/`:
   - `Models/` — Codable types (`ChatMessage`, `Purchase`, `ChatResponse`).
@@ -25,3 +25,10 @@ SwiftUI client for the local agent-wallet server.
 (`method` is `"x402"` or `"One-time card"`).
 
 `POST /api/unlock` → HTTP 200 means approved; any other status means denied.
+
+`GET /api/wallet` → `{ "balance", "held", "purchases" }`.
+
+Onramp ("Add money" on the Wallet tab, `ViewModels/OnrampViewModel.swift`):
+`POST /api/onramp/link-wallet`, then `POST /api/onramp/order` `{ "amount": "5" }` → `{ orderId, clientSecret, quote, paymentStatus }`,
+then `GET /api/onramp/config` → `{ clientApiKey, environment }` (publishable `ck_staging_` key; it selects the Crossmint environment).
+After checkout, poll `GET /api/onramp/order/<orderId>` → `{ paymentStatus, deliveryStatus, txId }` until `deliveryStatus == "completed"`.

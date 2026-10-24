@@ -7,6 +7,7 @@ import SwiftUI
 
 struct WalletView: View {
     @Environment(ChatViewModel.self) private var viewModel
+    @State private var onramp = OnrampViewModel()
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,25 @@ struct WalletView: View {
                     .padding(.vertical)
                 }
 
+                Section {
+                    Button {
+                        Task { await onramp.start() }
+                    } label: {
+                        HStack {
+                            Label("Add money", systemImage: "plus.circle.fill")
+                            Spacer()
+                            if onramp.isBusy {
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(onramp.isBusy)
+
+                    OnrampStatusRow(status: onramp.status)
+                } footer: {
+                    Text("Buy $\(OnrampViewModel.amount) of testnet USDC on Base Sepolia by card (Crossmint staging).")
+                }
+
                 Section("Purchases") {
                     if viewModel.purchases.isEmpty {
                         Text("No purchases yet")
@@ -36,6 +56,46 @@ struct WalletView: View {
                 }
             }
             .navigationTitle("Wallet")
+            .sheet(item: $onramp.session, onDismiss: {
+                Task { await onramp.checkoutClosed(wallet: viewModel) }
+            }) { session in
+                OnrampCheckoutView(session: session) { phase, paymentStatus in
+                    onramp.checkoutUpdated(phase: phase, paymentStatus: paymentStatus)
+                }
+            }
+        }
+    }
+}
+
+private struct OnrampStatusRow: View {
+    let status: OnrampViewModel.Status
+
+    var body: some View {
+        switch status {
+        case .idle:
+            EmptyView()
+        case .preparing:
+            Text("Creating order…").foregroundStyle(.secondary)
+        case .inCheckout:
+            Text("Complete the checkout to add money.").foregroundStyle(.secondary)
+        case .waitingForDelivery(let message):
+            Text(message).foregroundStyle(.secondary)
+        case .delivered(let txId):
+            VStack(alignment: .leading, spacing: 4) {
+                Label("USDC delivered", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                if let txId {
+                    Text(txId)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                }
+            }
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
         }
     }
 }

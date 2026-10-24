@@ -7,6 +7,7 @@ import { paymentMiddlewareFromHTTPServer } from "@x402/express";
 import { runAgent } from "./agent.js";
 import { ITEMS, UNLOCK_FEE, findItem, formatUsd } from "./catalog.js";
 import { chargeAtCheckout, retryLastCard } from "./one-time-card.js";
+import { onrampRouter } from "./onramp.js";
 import { unlock } from "./unlock.js";
 import { getBalance, getHeld, getPurchases } from "./wallet.js";
 
@@ -108,6 +109,8 @@ app.post("/api/unlock", async (_req, res) => {
   const result = await unlock();
   res.status(result.status).json(result.body);
 });
+
+app.use("/api/onramp", onrampRouter);
 
 app.get("/api/wallet", (_req, res) => {
   res.json({ balance: getBalance(), held: getHeld(), purchases: getPurchases() });

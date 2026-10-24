@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		4F82C96A308C975A005F9C39 /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F82C969308C975A005F9C39 /* DeviceActivity.framework */; };
 		4F82C972308C975A005F9C39 /* SpendyMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4F82C967308C975A005F9C39 /* SpendyMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4F82C97D308D04DB005F9C39 /* CrossmintClientSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 4F82C97C308D04DB005F9C39 /* CrossmintClientSDK */; };
+		4F82C986308D06F6005F9C39 /* CrossmintCheckout in Frameworks */ = {isa = PBXBuildFile; productRef = 4F82C985308D06F6005F9C39 /* CrossmintCheckout */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -88,6 +90,8 @@
 		4F4A5C4A308C47EA00447F93 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				4F82C97D308D04DB005F9C39 /* CrossmintClientSDK in Frameworks */,
+				4F82C986308D06F6005F9C39 /* CrossmintCheckout in Frameworks */,
 			);
 		};
 		4F82C964308C975A005F9C39 /* Frameworks */ = {
@@ -147,6 +151,10 @@
 				4F4A5C4F308C47EA00447F93 /* Agentwallet */,
 			);
 			name = Agentwallet;
+			packageProductDependencies = (
+				4F82C97C308D04DB005F9C39 /* CrossmintClientSDK */,
+				4F82C985308D06F6005F9C39 /* CrossmintCheckout */,
+			);
 			productName = Agentwallet;
 			productReference = 4F4A5C4D308C47EA00447F93 /* Agentwallet.app */;
 			productType = "com.apple.product-type.application";
@@ -196,6 +204,10 @@
 			);
 			mainGroup = 4F4A5C44308C47EA00447F93;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4F82C97B308D04DB005F9C39 /* XCRemoteSwiftPackageReference "crossmint-swift-sdk" */,
+				4F82C984308D06F5005F9C39 /* XCRemoteSwiftPackageReference "crossmint-checkout-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4F4A5C4E308C47EA00447F93 /* Products */;
 			projectDirPath = "";
@@ -521,6 +533,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4F82C97B308D04DB005F9C39 /* XCRemoteSwiftPackageReference "crossmint-swift-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Crossmint/crossmint-swift-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.0;
+			};
+		};
+		4F82C984308D06F5005F9C39 /* XCRemoteSwiftPackageReference "crossmint-checkout-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Crossmint/crossmint-checkout-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4F82C97C308D04DB005F9C39 /* CrossmintClientSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F82C97B308D04DB005F9C39 /* XCRemoteSwiftPackageReference "crossmint-swift-sdk" */;
+			productName = CrossmintClientSDK;
+		};
+		4F82C985308D06F6005F9C39 /* CrossmintCheckout */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F82C984308D06F5005F9C39 /* XCRemoteSwiftPackageReference "crossmint-checkout-swift" */;
+			productName = CrossmintCheckout;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4F4A5C45308C47EA00447F93 /* Project object */;
 	validationLevel = 1;

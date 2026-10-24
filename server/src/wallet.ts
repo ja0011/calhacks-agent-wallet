@@ -73,3 +73,6 @@ const x402Client = new CdpX402Client({
   },
 });
 export const fetchWithPayment = wrapFetchWithPayment(globalThis.fetch, x402Client);
+
+// Public EVM address of the CDP buyer wallet that pays x402 fees.
+export const getBuyerAddress = async () => (await x402Client.getAddresses()).evmAddress;
