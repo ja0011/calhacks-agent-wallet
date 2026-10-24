@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct AgentwalletApp: App {
+    /// One view model shared by both tabs so balance and purchases stay in sync.
+    @State private var chatViewModel = ChatViewModel()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(chatViewModel)
         }
     }
 }

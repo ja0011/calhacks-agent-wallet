@@ -9,16 +9,16 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            ChatView()
+                .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right") }
+            WalletView()
+                .tabItem { Label("Wallet", systemImage: "wallet.bifold") }
         }
-        .padding()
     }
 }
 
 #Preview {
     ContentView()
+        .environment(ChatViewModel())
 }
