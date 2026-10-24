@@ -24,6 +24,12 @@ nonisolated struct ShieldService {
             ? nil
             : .specific(selection.categoryTokens)
         store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+
+        // Record when the lock started. Re-applying an existing shield (app relaunch,
+        // selection change) keeps the original time, so elapsed time doesn't reset.
+        if LockShared.lockedAt == nil {
+            LockShared.defaults.set(Date.now, forKey: LockShared.lockedAtKey)
+        }
     }
 
     /// Removes every shield this app applied.
@@ -31,6 +37,7 @@ nonisolated struct ShieldService {
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil
+        LockShared.defaults.removeObject(forKey: LockShared.lockedAtKey)
     }
 
     func loadSelection() -> FamilyActivitySelection {

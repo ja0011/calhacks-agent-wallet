@@ -1,10 +1,17 @@
 // Agent wallet: the on-chain USDC balance, the purchase list, and the x402 buyer client.
 // Shared by the shopping agent, the unlock flow, and the one-time card flow.
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { CdpX402Client } from "@coinbase/cdp-sdk/x402";
 import { wrapFetchWithPayment } from "@x402/fetch";
 import { createPublicClient, erc20Abi, http } from "viem";
 import { baseSepolia } from "viem/chains";
-import { formatUsd } from "./catalog.js";
+import {
+  SPEND_PER_PAYMENT_CENTS,
+  SPEND_PER_SESSION_CENTS,
+  UNLOCK_PRICE_CENTS,
+  formatUsd,
+} from "./catalog.js";
 
 // USDC on Base Sepolia has 6 decimals, so $0.01 = 10_000 atomic units.
 const USDC_BASE_SEPOLIA = "0x036cbd53842c5426634e7929541ec2318f3dcf7e";
@@ -19,6 +26,101 @@ export type Purchase = {
   method: "x402" | "One-time card";
 };
 
+export type ActivityMethod = "Card" | "x402" | "One-time card";
+export type ActivityDirection = "in" | "out";
+
+export type ActivityEntry = {
+  label: string;
+  method: ActivityMethod;
+  amountCents: number;
+  direction: ActivityDirection;
+  at: string;
+};
+
+const parsedBankStart = Number.parseInt(process.env.BANK_START_CENTS ?? "", 10);
+export const BANK_START_CENTS =
+  Number.isInteger(parsedBankStart) && parsedBankStart >= 0 ? parsedBankStart : 284_736;
+
+const STATE_PATH = fileURLToPath(new URL("../.data/state.json", import.meta.url));
+const ACTIVITY_LIMIT = 20;
+
+type PersistedState = {
+  bankCents: number;
+  activity: ActivityEntry[];
+  countedOrderIds: string[];
+  orderAmounts: Record<string, number>;
+};
+
+function loadState(): PersistedState {
+  try {
+    const raw = JSON.parse(readFileSync(STATE_PATH, "utf8")) as Partial<PersistedState>;
+    return {
+      bankCents: typeof raw.bankCents === "number" && Number.isFinite(raw.bankCents) ? raw.bankCents : BANK_START_CENTS,
+      activity: Array.isArray(raw.activity) ? raw.activity : [],
+      countedOrderIds: Array.isArray(raw.countedOrderIds) ? raw.countedOrderIds : [],
+      orderAmounts: raw.orderAmounts && typeof raw.orderAmounts === "object" ? raw.orderAmounts : {},
+    };
+  } catch {
+    return { bankCents: BANK_START_CENTS, activity: [], countedOrderIds: [], orderAmounts: {} };
+  }
+}
+
+let { bankCents, activity, countedOrderIds, orderAmounts } = loadState();
+const countedOrders = new Set(countedOrderIds);
+
+function persist() {
+  mkdirSync(fileURLToPath(new URL("../.data", import.meta.url)), { recursive: true });
+  writeFileSync(
+    STATE_PATH,
+    JSON.stringify({ bankCents, activity, countedOrderIds: [...countedOrders], orderAmounts }, null, 2),
+  );
+}
+
+const formatBankUsd = (cents: number) => {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(cents);
+  return `${sign}$${Math.floor(abs / 100).toLocaleString("en-US")}.${String(abs % 100).padStart(2, "0")}`;
+};
+
+function recordActivity(entry: Omit<ActivityEntry, "at">) {
+  activity.push({ ...entry, at: new Date().toISOString() });
+  persist();
+}
+
+export const getBank = () => ({ balance: formatBankUsd(bankCents) });
+export const getActivity = () =>
+  [...activity]
+    .reverse()
+    .slice(0, ACTIVITY_LIMIT)
+    .map(({ label, method, amountCents, direction, at }) => ({
+      label,
+      method,
+      amount: formatUsd(amountCents),
+      direction,
+      at,
+    }));
+
+export function rememberCardOrder(orderId: string, amountCents: number) {
+  orderAmounts[orderId] = amountCents;
+  persist();
+}
+
+// Credits the wallet from a completed Crossmint order exactly once. Subtracts that
+// order's total from the simulated bank. A repeated poll with the same orderId is a no-op.
+export function recordCompletedCardOrder(orderId: string, amountCents?: number) {
+  if (countedOrders.has(orderId)) return;
+  const cents = amountCents ?? orderAmounts[orderId];
+  if (cents === undefined) return;
+  countedOrders.add(orderId);
+  bankCents -= cents;
+  delete orderAmounts[orderId];
+  recordActivity({ label: "Added to wallet", method: "Card", amountCents: cents, direction: "in" });
+}
+
+export function recordUnlock() {
+  recordActivity({ label: "Unlock", method: "x402", amountCents: UNLOCK_PRICE_CENTS, direction: "out" });
+}
+
 // SIMULATED SMART CONTRACT: funds locked by an unlock and released later by a timer.
 // Display-only: the held amount is NOT subtracted from the on-chain balance, and nothing
 // is locked on-chain. It's an in-memory number that is lost on restart.
@@ -28,8 +130,17 @@ const purchases: Purchase[] = [];
 export const getHeld = () => formatUsd(heldCents);
 export const getPurchases = () => [...purchases];
 
-export function recordPurchase(purchase: Purchase) {
+export function recordPurchase(purchase: Purchase, amountCents: number) {
   purchases.push(purchase);
+  recordActivity({ label: purchase.item, method: purchase.method, amountCents, direction: "out" });
+}
+
+export function resetBank() {
+  bankCents = BANK_START_CENTS;
+  activity = [];
+  countedOrders.clear();
+  orderAmounts = {};
+  persist();
 }
 
 // SIMULATED SMART CONTRACT: adds `cents` to the held amount for `seconds`. Display-only.
@@ -47,12 +158,13 @@ export function hold(cents: number, seconds: number) {
 const x402Client = new CdpX402Client({
   environment: "development",
   spendControls: {
-    maxAmountPerPayment: { atomic: 10n * ATOMIC_PER_CENT, asset: USDC_BASE_SEPOLIA },
-    maxCumulativeSpend: { atomic: 100n * ATOMIC_PER_CENT, asset: USDC_BASE_SEPOLIA },
+    maxAmountPerPayment: { atomic: BigInt(SPEND_PER_PAYMENT_CENTS) * ATOMIC_PER_CENT, asset: USDC_BASE_SEPOLIA },
+    maxCumulativeSpend: { atomic: BigInt(SPEND_PER_SESSION_CENTS) * ATOMIC_PER_CENT, asset: USDC_BASE_SEPOLIA },
     allowedNetworks: ["eip155:84532"],
   },
 });
 export const fetchWithPayment = wrapFetchWithPayment(globalThis.fetch, x402Client);
+console.log(`[startup] ${new Date().toISOString()} buyer x402 client constructed (no network call)`);
 
 // Public EVM address of the CDP buyer wallet that pays x402 fees.
 export const getBuyerAddress = async () => (await x402Client.getAddresses()).evmAddress;

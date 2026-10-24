@@ -13,16 +13,10 @@ struct WalletView: View {
         NavigationStack {
             List {
                 Section {
-                    VStack(spacing: 4) {
-                        Text("Balance")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Text(viewModel.balance)
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical)
+                    MoneyRow(icon: "building.columns.fill", title: "Bank", subtitle: "Checking, simulated",
+                             amount: viewModel.bankBalance ?? "-")
+                    MoneyRow(icon: "wallet.bifold.fill", title: "USDC wallet", subtitle: "Base Sepolia testnet",
+                             amount: viewModel.balance)
                 }
 
                 Section {
@@ -44,18 +38,29 @@ struct WalletView: View {
                     Text("Buy $\(OnrampViewModel.amount) of testnet USDC on Base Sepolia by card (Crossmint staging).")
                 }
 
-                Section("Purchases") {
-                    if viewModel.purchases.isEmpty {
-                        Text("No purchases yet")
+                Section("Unlock") {
+                    if let price = viewModel.unlockPriceText {
+                        Text("Unlock price: \(price)")
+                    } else {
+                        Text("Unlock price unavailable")
+                    }
+                    WalletLimitsText()
+                }
+
+                Section("History") {
+                    if viewModel.history.isEmpty {
+                        Text("No activity yet")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(viewModel.purchases) { purchase in
-                            PurchaseRow(purchase: purchase)
+                        ForEach(viewModel.history) { item in
+                            ActivityRow(item: item)
                         }
                     }
                 }
             }
             .navigationTitle("Wallet")
+            .task { await viewModel.refreshWallet() }
+            .refreshable { await viewModel.refreshWallet() }
             .sheet(item: $onramp.session, onDismiss: {
                 Task { await onramp.checkoutClosed(wallet: viewModel) }
             }) { session in
@@ -97,32 +102,6 @@ private struct OnrampStatusRow: View {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
         }
-    }
-}
-
-private struct PurchaseRow: View {
-    let purchase: Purchase
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(purchase.item)
-                    .font(.headline)
-                Text(purchase.method)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(methodColor.opacity(0.15), in: .capsule)
-                    .foregroundStyle(methodColor)
-            }
-            Spacer()
-            Text(purchase.amount)
-                .font(.body.monospacedDigit())
-        }
-    }
-
-    private var methodColor: Color {
-        purchase.method == "x402" ? .purple : .blue
     }
 }
 

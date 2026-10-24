@@ -25,6 +25,23 @@ final class LockViewModel {
     private(set) var state: LockState = .unlocked
     private(set) var isUnlocking = false
     var errorMessage: String?
+    let checkout: OnrampViewModel
+
+    var isPaymentBusy: Bool { isUnlocking || checkout.isBusy }
+
+    func startCardUnlock() async {
+        guard state == .locked, !isPaymentBusy else { return }
+        errorMessage = nil
+        await checkout.start(forUnlock: true)
+    }
+
+    func cardCheckoutClosed(wallet: ChatViewModel) async {
+        if let orderId = await checkout.finishCheckout() {
+            await unlock(wallet: wallet, orderId: orderId)
+        } else {
+            await wallet.refreshWallet()
+        }
+    }
 
     private let shield = ShieldService()
     private let scheduler = RelockScheduler()
@@ -37,11 +54,15 @@ final class LockViewModel {
 
     init(client: APIClient = APIClient()) {
         self.client = client
+        self.checkout = OnrampViewModel(client: client)
         self.selection = shield.loadSelection()
         restoreState()
     }
 
     var isAuthorized: Bool { authorizationStatus == .approved }
+
+    /// When the current shield went on, shared with the extension. Nil if unknown.
+    var lockedAt: Date? { LockShared.lockedAt }
 
     var hasSelection: Bool {
         !selection.applicationTokens.isEmpty
@@ -89,13 +110,14 @@ final class LockViewModel {
     }
 
     /// Asks the server for permission. Only HTTP 200 lifts the shield; anything else keeps it on.
-    func unlock() async {
-        guard state == .locked, !isUnlocking else { return }
+    func unlock(wallet: ChatViewModel, orderId: String? = nil) async {
+        guard state == .locked, !isPaymentBusy else { return }
         isUnlocking = true
         defer { isUnlocking = false }
 
         do {
-            try await client.requestUnlock()
+            let response = try await client.requestUnlock(orderId: orderId)
+            if let response { wallet.applyUnlock(response) }
             shield.clearShield()
             errorMessage = nil
             let until = Date.now.addingTimeInterval(Config.unlockDuration)
@@ -104,6 +126,7 @@ final class LockViewModel {
             scheduler.startUnlockWindow(until: until)
             // ...plus an in-app timer so the screen flips to Locked on time while open.
             scheduleRelock(at: until)
+            await wallet.refreshAfterMoneyMovement()
         } catch {
             errorMessage = "Unlock denied: \(error.localizedDescription)"
         }

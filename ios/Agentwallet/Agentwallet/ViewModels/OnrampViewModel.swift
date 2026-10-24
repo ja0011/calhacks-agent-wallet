@@ -51,17 +51,22 @@ final class OnrampViewModel {
         }
     }
 
-    func start() async {
+    func start(forUnlock: Bool = false) async {
         guard !isBusy else { return }
         status = .preparing
         checkoutFinished = false
 
         // Linking is idempotent on Crossmint's side; if it fails because the wallet is
         // already linked, the order below still works, so its result is ignored.
-        try? await client.linkOnrampWallet()
+        if !forUnlock { try? await client.linkOnrampWallet() }
 
         do {
-            let order = try await client.createOnrampOrder(amount: Self.amount)
+            let order: OnrampOrder
+            if forUnlock {
+                order = try await client.startUnlock()
+            } else {
+                order = try await client.createOnrampOrder(amount: Self.amount)
+            }
             let config = try await client.fetchOnrampConfig()
             guard config.environment == "staging" else {
                 status = .failed("Expected the staging environment, got \(config.environment).")
@@ -90,13 +95,25 @@ final class OnrampViewModel {
 
     /// Called when the checkout sheet closes, either by the user or after payment.
     func checkoutClosed(wallet: ChatViewModel) async {
-        guard let orderId else { return }
+        if await finishCheckout() != nil {
+            await wallet.refreshAfterMoneyMovement()
+        } else {
+            await wallet.refreshWallet()
+        }
+    }
+
+    /// Returns an order only after the server confirms delivery, never just payment.
+    func finishCheckout() async -> String? {
+        guard let orderId, status == .inCheckout else { return nil }
+        status = .waitingForDelivery("Checking delivery…")
         if checkoutFinished {
             await pollUntilDelivered(orderId: orderId)
         } else {
             await showCurrentStatus(orderId: orderId)
         }
-        await wallet.refreshWallet()
+        self.orderId = nil
+        if case .delivered = status { return orderId }
+        return nil
     }
 
     private func pollUntilDelivered(orderId: String) async {
@@ -119,7 +136,12 @@ final class OnrampViewModel {
                 status = .failed("Couldn't check the order: \(error.localizedDescription)")
                 return
             }
-            try? await Task.sleep(for: Self.pollInterval)
+            do {
+                try await Task.sleep(for: Self.pollInterval)
+            } catch {
+                status = .failed("Delivery check cancelled.")
+                return
+            }
         }
         status = .failed("USDC hasn't arrived yet. Check again later.")
     }

@@ -22,4 +22,11 @@ nonisolated enum LockShared {
     static var defaults: UserDefaults {
         UserDefaults(suiteName: appGroupID) ?? .standard
     }
+
+    /// When the current shield went on. Set by `ShieldService.applyShield`, cleared by `clearShield`.
+    static let lockedAtKey = "lock.lockedAt"
+
+    static var lockedAt: Date? {
+        defaults.object(forKey: lockedAtKey) as? Date
+    }
 }

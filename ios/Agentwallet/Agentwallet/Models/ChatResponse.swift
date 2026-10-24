@@ -14,6 +14,8 @@ struct ChatRequest: Codable {
 struct ChatResponse: Codable {
     let reply: String
     /// Formatted balance, e.g. "$0.99".
-    let balance: String
+    let balance: String?
+    let bank: WalletResponse.Bank?
+    let activity: [ActivityItem]?
     let purchases: [Purchase]
 }

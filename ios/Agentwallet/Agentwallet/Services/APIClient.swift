@@ -100,20 +100,31 @@ struct APIClient {
         return data
     }
 
+    func startUnlock() async throws -> OnrampOrder {
+        try await send(method: "POST", path: "api/unlock/start")
+    }
+
     /// POST /api/unlock. Succeeds only on HTTP 200; any other status throws `APIError.badStatus`.
-    func requestUnlock() async throws {
-        guard let url = Config.unlockURL else {
+    func requestUnlock(orderId: String? = nil) async throws -> UnlockResponse? {
+        guard let url = URL(string: baseURL)?.appending(path: "api/unlock") else {
             throw APIError.invalidURL
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
-        let (_, response) = try await session.data(for: request)
+        if let orderId {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(["orderId": orderId])
+        }
+
+        let (data, response) = try await session.data(for: request)
 
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         guard status == 200 else {
             throw APIError.badStatus(status)
         }
+        // HTTP 200 remains authoritative even if optional balance data is unavailable.
+        return try? JSONDecoder().decode(UnlockResponse.self, from: data)
     }
 }

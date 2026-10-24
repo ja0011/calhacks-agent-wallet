@@ -190,7 +190,10 @@ export async function chargeAtCheckout({ number, expiry, cvc, itemId }: Checkout
 
   // The USDC funding of this card is simulated: Stripe charges its own test-mode balance,
   // and no USDC moves on-chain, so the on-chain balance doesn't drop for card purchases.
-  recordPurchase({ item: item.name, amount: formatUsd(item.priceCents), method: "One-time card" });
+  recordPurchase(
+    { item: item.name, amount: formatUsd(item.priceCents), method: "One-time card" },
+    item.priceCents,
+  );
   record.outcome = "approved";
   lastUsedCardId = record.cardId;
   return { approved: true, item: item.name, amount: formatUsd(item.priceCents) };

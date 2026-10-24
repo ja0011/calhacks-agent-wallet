@@ -2,12 +2,21 @@
 // items with the CDP buyer wallet, and pay for card items with a one-time Stripe card.
 import Anthropic from "@anthropic-ai/sdk";
 import { SpendControlError } from "@coinbase/cdp-sdk/x402";
-import { ITEMS, STORE_URL, findItem, formatUsd } from "./catalog.js";
+import {
+  ITEMS,
+  SPEND_PER_PAYMENT_CENTS,
+  SPEND_PER_SESSION_CENTS,
+  STORE_URL,
+  findItem,
+  formatUsd,
+} from "./catalog.js";
 import { buyWithOneTimeCard } from "./one-time-card.js";
 import {
   fetchWithPayment,
   getBalance,
+  getActivity,
   getBalanceFields,
+  getBank,
   getHeld,
   getOnchainUsdcCents,
   getPurchases,
@@ -34,7 +43,8 @@ const tools: Anthropic.Tool[] = [
     name: "buy_with_x402",
     description:
       'Buys one store item whose payment method is "x402", paying in USDC from the agent wallet on Base Sepolia. ' +
-      "Returns the item content on success. Payments over $0.10 each, or over $1.00 total this session, are refused. " +
+      `Returns the item content on success. Payments over ${formatUsd(SPEND_PER_PAYMENT_CENTS)} each, ` +
+      `or over ${formatUsd(SPEND_PER_SESSION_CENTS)} total this session, are refused. ` +
       "Only call this when the user asked to buy the item.",
     input_schema: {
       type: "object",
@@ -85,7 +95,7 @@ async function buyWithX402(itemId: unknown) {
     const content = await response.json();
     // The payment moved real USDC, so the on-chain balance drops by itself.
     invalidateBalanceCache();
-    recordPurchase({ item: item.name, amount: formatUsd(item.priceCents), method: "x402" });
+    recordPurchase({ item: item.name, amount: formatUsd(item.priceCents), method: "x402" }, item.priceCents);
     return { ok: true, item: item.name, paid: formatUsd(item.priceCents), content };
   } catch (error) {
     if (error instanceof SpendControlError) {
@@ -122,7 +132,9 @@ export async function runAgent(message: string) {
         "check the wallet balance, and buy what the user asks for. Never buy anything the user " +
         'did not ask for. Prefer x402: if an item\'s method is "x402", use buy_with_x402. Use ' +
         'buy_with_one_time_card only for items whose method is "card". Keep replies short and ' +
-        "say what was bought, for how much, and how it was paid.",
+        "say what was bought, for how much, and how it was paid. " +
+        `The store sells: ${ITEMS.map((item) => `${item.name} (${formatUsd(item.priceCents)}, paid by ${item.method})`).join("; ")}. ` +
+        `x402 limits: ${formatUsd(SPEND_PER_PAYMENT_CENTS)} per payment, ${formatUsd(SPEND_PER_SESSION_CENTS)} per session.`,
       tools,
       messages,
     });
@@ -133,7 +145,14 @@ export async function runAgent(message: string) {
         .filter((block): block is Anthropic.TextBlock => block.type === "text")
         .map((block) => block.text)
         .join("\n");
-      return { reply, ...(await getBalanceFields()), held: getHeld(), purchases: getPurchases() };
+      return {
+        reply,
+        ...(await getBalanceFields()),
+        held: getHeld(),
+        purchases: getPurchases(),
+        bank: getBank(),
+        activity: getActivity(),
+      };
     }
 
     const results: Anthropic.ToolResultBlockParam[] = [];
@@ -155,5 +174,7 @@ export async function runAgent(message: string) {
     ...(await getBalanceFields()),
     held: getHeld(),
     purchases: getPurchases(),
+    bank: getBank(),
+    activity: getActivity(),
   };
 }

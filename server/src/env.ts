@@ -7,3 +7,4 @@ dotenv.config({
   path: fileURLToPath(new URL("../.env", import.meta.url)),
   quiet: true,
 });
+console.log(`[startup] ${new Date().toISOString()} env loaded`);

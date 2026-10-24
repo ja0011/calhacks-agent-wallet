@@ -8,6 +8,7 @@ import SwiftUI
 
 struct UnlockView: View {
     @Environment(LockViewModel.self) private var viewModel
+    @Environment(ChatViewModel.self) private var wallet
     @State private var isPickerPresented = false
 
     var body: some View {
@@ -42,18 +43,8 @@ struct UnlockView: View {
                     }
                     .disabled(!viewModel.isAuthorized || !viewModel.hasSelection || viewModel.state == .locked)
 
-                    Button {
-                        Task { await viewModel.unlock() }
-                    } label: {
-                        HStack {
-                            Label("Unlock", systemImage: "lock.open.fill")
-                            if viewModel.isUnlocking {
-                                Spacer()
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(viewModel.state != .locked || viewModel.isUnlocking)
+                    UnlockPaymentButtons()
+                    WalletLimitsText()
                 }
 
                 if let error = viewModel.errorMessage {
@@ -64,6 +55,7 @@ struct UnlockView: View {
                 }
             }
             .navigationTitle("Unlock")
+            .task { await wallet.refreshWallet() }
             .familyActivityPicker(isPresented: $isPickerPresented, selection: $viewModel.selection)
             .onChange(of: viewModel.selection) {
                 viewModel.selectionChanged()
@@ -131,4 +123,77 @@ private struct LockStatusView: View {
 #Preview {
     UnlockView()
         .environment(LockViewModel())
+        .environment(ChatViewModel())
+}
+
+/// Shared actions keep Home and the Unlock tab on the same payment flow.
+struct UnlockPaymentButtons: View {
+    @Environment(LockViewModel.self) private var lock
+    @Environment(ChatViewModel.self) private var wallet
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                Task { await lock.startCardUnlock() }
+            } label: {
+                HStack {
+                    if lock.isPaymentBusy { ProgressView() }
+                    if let price = wallet.unlockPriceText {
+                        Text("Unlock for \(price)")
+                    } else {
+                        Text("Unlock price unavailable")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(lock.state != .locked || lock.isPaymentBusy || wallet.unlockPriceText == nil)
+
+            if let price = wallet.unlockPriceText {
+                Text("You pay \(price) by card. Crossmint delivers it as USDC, and your wallet pays it over x402 to unlock your apps.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Button("Unlock with wallet balance") {
+                Task {
+                    await lock.unlock(wallet: wallet)
+                }
+            }
+            .font(.footnote)
+            .buttonStyle(.borderless)
+            .disabled(lock.state != .locked || lock.isPaymentBusy)
+
+            switch lock.checkout.status {
+            case .preparing:
+                Text("Creating checkout…").font(.caption)
+            case .inCheckout:
+                Text("Complete the card checkout.").font(.caption)
+            case .waitingForDelivery:
+                Text("Waiting for USDC delivery. Apps stay locked.").font(.caption)
+            case .failed:
+                Text("Checkout or delivery was not confirmed. Apps stay locked.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            default:
+                EmptyView()
+            }
+        }
+    }
+}
+
+struct WalletLimitsText: View {
+    @Environment(ChatViewModel.self) private var wallet
+
+    var body: some View {
+        if let limits = wallet.limits {
+            Text("Agent limits: \(limits.perPaymentText) per payment, \(limits.perSessionText) per session.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } else {
+            Text("Agent limits unavailable.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
 }

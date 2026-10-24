@@ -30,8 +30,29 @@ struct OnrampOrderStatus: Codable {
     let txId: String?
 }
 
-/// Response body for GET /api/wallet.
+/// Response body for GET /api/wallet. `balance` is null when the server can't read the chain;
+/// `bank` and `activity` are optional fields the server may add.
 struct WalletResponse: Codable {
-    let balance: String
+    struct Bank: Codable {
+        let balance: String?
+    }
+
+    struct Limits: Codable {
+        let perPaymentText: String
+        let perSessionText: String
+    }
+
+    let unlockPriceText: String
+    let limits: Limits
+    let balance: String?
+    let bank: Bank?
+    let activity: [ActivityItem]?
     let purchases: [Purchase]
+}
+
+ /// Balance fields returned by a successful unlock; other wallet metadata is optional.
+struct UnlockResponse: Decodable {
+    let balance: String?
+    let bank: WalletResponse.Bank?
+    let activity: [ActivityItem]?
 }

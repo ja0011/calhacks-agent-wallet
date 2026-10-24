@@ -9,6 +9,7 @@ import CrossmintCheckout
 /// Crossmint's embedded checkout for an onramp order created by our server.
 /// The environment comes from the client key: a `ck_staging_` key selects staging.
 struct OnrampCheckoutView: View {
+    var title: String = "Add $\(OnrampViewModel.amount) USDC"
     let session: OnrampViewModel.CheckoutSession
     let onOrderUpdated: (_ phase: String?, _ paymentStatus: String?) -> Void
 
@@ -38,7 +39,7 @@ struct OnrampCheckoutView: View {
             .onOrderUpdated { update in
                 onOrderUpdated(update.order?.phase?.rawValue, update.order?.payment?.status)
             }
-            .navigationTitle("Add $\(OnrampViewModel.amount) USDC")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
