@@ -12,12 +12,21 @@ import {
   UNLOCK_FEE,
   findItem,
   formatUsd,
+  listCatalog,
   unlockPriceText,
 } from "./catalog.js";
 import { chargeAtCheckout, retryLastCard } from "./one-time-card.js";
 import { CrossmintError, onrampRouter } from "./onramp.js";
 import { startUnlock, unlock } from "./unlock.js";
-import { getActivity, getBalanceFields, getBank, getHeld, getPurchases, resetBank } from "./wallet.js";
+import {
+  getActivity,
+  getBalanceFields,
+  getBank,
+  getBuyerAddress,
+  getHeld,
+  getPurchases,
+  resetBank,
+} from "./wallet.js";
 
 const PORT = 3000;
 const BASE_SEPOLIA = "eip155:84532";
@@ -94,42 +103,42 @@ app.get("/", (_req, res) => {
   const cards = ITEMS.map((item) =>
     item.method === "x402"
       ? `<div class="item" id="${item.id}">
+  <p class="muted">${item.merchant}</p>
   <h2>${item.name}</h2>
   <p class="price">${formatUsd(item.priceCents)}</p>
   <p class="muted">Paid with x402 (USDC on Base Sepolia).
     Endpoint: <code>GET ${item.path}</code></p>
 </div>`
       : `<div class="item" id="${item.id}">
+  <p class="muted">${item.merchant}</p>
   <h2>${item.name}</h2>
   <p class="price">${formatUsd(item.priceCents)}</p>
   <p class="muted">Paid with the card checkout form.</p>
   <a class="button" href="${item.path}">Buy ${item.name}</a>
 </div>`,
   ).join("\n");
-  res.send(page("Fake Store", `<h1>Fake Store</h1>\n${cards}`));
+  res.send(page("Lumen Media and Brightline Goods", `<h1>Lumen Media and Brightline Goods</h1>\n${cards}`));
 });
 
-const marketReport = findItem("market-report")!;
-app.get(marketReport.path, (_req, res) => {
+const movieRental = findItem("market-report")!;
+app.get(movieRental.path, (_req, res) => {
   res.json({
-    item: marketReport.name,
-    price: formatUsd(marketReport.priceCents),
-    generatedAt: new Date().toISOString(),
-    summary: "Fake data: markets were mostly flat today.",
-    highlights: ["Tech stocks rose 0.4%.", "Energy stocks fell 0.2%."],
+    item: movieRental.name,
+    merchant: movieRental.merchant,
+    price: formatUsd(movieRental.priceCents),
+    confirmation: "Rental confirmed for one night. Stream starts when you open the title.",
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   });
 });
 
-const priceFeed = findItem("price-feed")!;
-app.get(priceFeed.path, (_req, res) => {
+const dayPass = findItem("price-feed")!;
+app.get(dayPass.path, (_req, res) => {
   res.json({
-    item: priceFeed.name,
-    price: formatUsd(priceFeed.priceCents),
-    generatedAt: new Date().toISOString(),
-    prices: [
-      { asset: "ETH", usd: "3200.50" },
-      { asset: "BTC", usd: "67420.00" },
-    ],
+    item: dayPass.name,
+    merchant: dayPass.merchant,
+    price: formatUsd(dayPass.priceCents),
+    pass: "Ad-free day pass is active.",
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   });
 });
 
@@ -170,13 +179,18 @@ app.post("/api/dev/reset-bank", (_req, res) => {
 });
 
 app.get("/api/wallet", async (_req, res) => {
-  const balanceFields = await getBalanceFields();
+  const [balanceFields, walletAddress] = await Promise.all([
+    getBalanceFields(),
+    getBuyerAddress().catch(() => null),
+  ]);
   res
     .status(balanceFields.balance === null ? 503 : 200)
     .json({
       ...balanceFields,
+      walletAddress,
       held: getHeld(),
       purchases: getPurchases(),
+      items: listCatalog(),
       bank: getBank(),
       activity: getActivity(),
       unlockPriceText,

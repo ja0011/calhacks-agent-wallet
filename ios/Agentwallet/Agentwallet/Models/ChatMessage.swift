@@ -16,4 +16,5 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     var id = UUID()
     let role: Role
     let text: String
+    var receipts: [Purchase] = []
 }

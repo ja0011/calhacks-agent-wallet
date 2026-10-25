@@ -9,7 +9,7 @@ import CrossmintCheckout
 /// Crossmint's embedded checkout for an onramp order created by our server.
 /// The environment comes from the client key: a `ck_staging_` key selects staging.
 struct OnrampCheckoutView: View {
-    var title: String = "Add $\(OnrampViewModel.amount) USDC"
+    var title: String = "Add money"
     let session: OnrampViewModel.CheckoutSession
     let onOrderUpdated: (_ phase: String?, _ paymentStatus: String?) -> Void
 

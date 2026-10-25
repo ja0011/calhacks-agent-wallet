@@ -11,6 +11,7 @@ type Outcome = "pending" | "approved" | "declined";
 type CardRecord = {
   cardId: string;
   itemId: string;
+  merchant: string;
   priceCents: number;
   last4: string;
   brand: string;
@@ -89,6 +90,7 @@ async function issueCard(item: Item): Promise<CardRecord> {
   const record: CardRecord = {
     cardId: card.id,
     itemId: item.id,
+    merchant: item.merchant,
     priceCents: item.priceCents,
     last4: card.last4,
     brand: card.brand,
@@ -178,7 +180,7 @@ export async function chargeAtCheckout({ number, expiry, cvc, itemId }: Checkout
     card: record.cardId,
     amount: item.priceCents,
     currency: "usd",
-    merchant_data: { name: "Fake Store" },
+    merchant_data: { name: item.merchant },
   });
   if (!authorization.approved) {
     record.outcome = "declined";
@@ -208,7 +210,7 @@ export async function retryLastCard() {
       card: record.cardId,
       amount: record.priceCents,
       currency: "usd",
-      merchant_data: { name: "Fake Store" },
+      merchant_data: { name: record.merchant },
     });
     return {
       ok: true,

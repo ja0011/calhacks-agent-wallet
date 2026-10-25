@@ -42,6 +42,8 @@ struct WalletResponse: Codable {
         let perSessionText: String
     }
 
+    var items: [CatalogItem]? = nil
+    let walletAddress: String?
     let unlockPriceText: String
     let limits: Limits
     let balance: String?
@@ -55,4 +57,17 @@ struct UnlockResponse: Decodable {
     let balance: String?
     let bank: WalletResponse.Bank?
     let activity: [ActivityItem]?
+}
+
+enum WalletAddressDisplay {
+    static func shortened(_ address: String) -> String {
+        guard address.count > 12 else { return address }
+        return String(address.prefix(6)) + "…" + String(address.suffix(4))
+    }
+
+    static func explorerURL(_ address: String) -> URL? {
+        guard address.count == 42, address.hasPrefix("0x"),
+              address.dropFirst(2).allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
+        return URL(string: "https://sepolia.basescan.org/address/")?.appendingPathComponent(address)
+    }
 }

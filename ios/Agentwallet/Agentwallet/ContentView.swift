@@ -30,9 +30,10 @@ struct ContentView: View {
                 .tabItem { Label("Wallet", systemImage: "wallet.bifold") }
                 .tag(AppTab.wallet)
             UnlockView()
-                .tabItem { Label("Unlock", systemImage: "lock.open") }
+                .tabItem { Label("App locking", systemImage: "lock.fill") }
                 .tag(AppTab.unlock)
         }
+        .tint(SpendyHomeStyle.purple)
         .sheet(item: $checkout.session, onDismiss: {
             Task { await lock.cardCheckoutClosed(wallet: wallet) }
         }) { session in

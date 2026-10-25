@@ -5,6 +5,7 @@ export type PaymentMethod = "x402" | "card";
 export type Item = {
   id: string;
   name: string;
+  merchant: string;
   priceCents: number;
   method: PaymentMethod;
   // x402 items: the protected API path. Card items: the checkout page.
@@ -20,14 +21,16 @@ export const TOTE_BAG_PRICE_CENTS = 150;
 export const ITEMS: Item[] = [
   {
     id: "market-report",
-    name: "Market report",
+    name: "Movie rental, one night",
+    merchant: "Lumen Media",
     priceCents: MARKET_REPORT_PRICE_CENTS,
     method: "x402",
     path: "/api/items/market-report",
   },
   {
     id: "price-feed",
-    name: "Price feed",
+    name: "Day pass, no ads",
+    merchant: "Lumen Media",
     priceCents: PRICE_FEED_PRICE_CENTS,
     method: "x402",
     path: "/api/items/price-feed",
@@ -35,18 +38,30 @@ export const ITEMS: Item[] = [
   {
     id: "sticker-pack",
     name: "Sticker pack",
+    merchant: "Brightline Goods",
     priceCents: STICKER_PACK_PRICE_CENTS,
     method: "card",
     path: "/checkout?item=sticker-pack",
   },
   {
     id: "tote-bag",
-    name: "Tote bag",
+    name: "Canvas tote bag",
+    merchant: "Brightline Goods",
     priceCents: TOTE_BAG_PRICE_CENTS,
     method: "card",
     path: "/checkout?item=tote-bag",
   },
 ];
+
+/** Shape used by the store page, GET /api/wallet, /api/chat, and list_items. */
+export const listCatalog = () =>
+  ITEMS.map(({ id, name, merchant, priceCents, method }) => ({
+    id,
+    name,
+    merchant,
+    price: formatUsd(priceCents),
+    method,
+  }));
 
 export const STORE_URL = "http://localhost:3000";
 

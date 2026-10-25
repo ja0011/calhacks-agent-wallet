@@ -9,6 +9,8 @@ import {
   STORE_URL,
   findItem,
   formatUsd,
+  listCatalog,
+  unlockPriceText,
 } from "./catalog.js";
 import { buyWithOneTimeCard } from "./one-time-card.js";
 import {
@@ -34,7 +36,7 @@ const tools: Anthropic.Tool[] = [
   {
     name: "list_items",
     description:
-      "Lists every item in the store with its id, name, price in USD, and payment method. " +
+      "Lists every item with its id, merchant, name, price in USD, and payment method. " +
       'Items with method "x402" are bought with buy_with_x402; items with method "card" need a card checkout. ' +
       "Call this before buying so you use a valid item id and know the price.",
     input_schema: { type: "object", properties: {} },
@@ -108,7 +110,7 @@ async function buyWithX402(itemId: unknown) {
 async function runTool(name: string, input: Record<string, unknown>) {
   switch (name) {
     case "list_items":
-      return ITEMS.map(({ id, name, priceCents, method }) => ({ id, name, price: formatUsd(priceCents), method }));
+      return listCatalog();
     case "buy_with_x402":
       return buyWithX402(input.item_id);
     case "get_balance":
@@ -128,12 +130,23 @@ export async function runAgent(message: string) {
       model: MODEL,
       max_tokens: 8000,
       system:
-        "You are a shopping agent for a small online store. Use the tools to look up items, " +
+        "You are a shopping agent for Lumen Media and Brightline Goods. Use the tools to look up items, " +
         "check the wallet balance, and buy what the user asks for. Never buy anything the user " +
         'did not ask for. Prefer x402: if an item\'s method is "x402", use buy_with_x402. Use ' +
-        'buy_with_one_time_card only for items whose method is "card". Keep replies short and ' +
-        "say what was bought, for how much, and how it was paid. " +
-        `The store sells: ${ITEMS.map((item) => `${item.name} (${formatUsd(item.priceCents)}, paid by ${item.method})`).join("; ")}. ` +
+        'buy_with_one_time_card only for items whose method is "card". After each purchase, reply ' +
+        "in two or three short sentences of plain text, with no markdown and no asterisks: what you " +
+        "bought, how much it cost, which payment method you had to use and why, and the balance left. " +
+        "For an x402 item, say the store supports x402 so you paid in USDC from the wallet, then the " +
+        "USDC left. For a card item, say the store only takes cards so you made a one-time card capped " +
+        "at the price that cannot be used again, and that the USDC balance is unchanged because the " +
+        "card draws on its own funds. All replies are plain text: no markdown and no asterisks. " +
+        `If the user asks what Spendy is, answer in two or three sentences: Spendy locks the apps ` +
+        `you cannot put down; unlocking costs ${unlockPriceText} paid in USDC over x402; and the ` +
+        "agent spends the rest of the wallet for you, paying with x402 where a store supports it " +
+        "and a one-time card where it does not. " +
+        "If the user asks to show saved items, list every catalog item as one line of " +
+        "'merchant, name, price' with no payment method, then one last line inviting them to say which one to buy. " +
+        `The merchants sell: ${ITEMS.map((item) => `${item.merchant}: ${item.name} (${formatUsd(item.priceCents)}, paid by ${item.method})`).join("; ")}. ` +
         `x402 limits: ${formatUsd(SPEND_PER_PAYMENT_CENTS)} per payment, ${formatUsd(SPEND_PER_SESSION_CENTS)} per session.`,
       tools,
       messages,
@@ -150,6 +163,7 @@ export async function runAgent(message: string) {
         ...(await getBalanceFields()),
         held: getHeld(),
         purchases: getPurchases(),
+        items: listCatalog(),
         bank: getBank(),
         activity: getActivity(),
       };
@@ -174,6 +188,7 @@ export async function runAgent(message: string) {
     ...(await getBalanceFields()),
     held: getHeld(),
     purchases: getPurchases(),
+    items: listCatalog(),
     bank: getBank(),
     activity: getActivity(),
   };

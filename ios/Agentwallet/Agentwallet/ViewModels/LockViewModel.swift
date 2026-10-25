@@ -88,15 +88,34 @@ final class LockViewModel {
 
     func selectionChanged() {
         shield.saveSelection(selection)
-        // Keep an active lock in sync with the new selection.
-        if state == .locked {
+        authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+        guard isAuthorized else { return }
+
+        if !hasSelection {
+            relockTask?.cancel()
+            relockTask = nil
+            scheduler.stopUnlockWindow()
+            shield.clearShield()
+            errorMessage = nil
+            setState(.unlocked)
+        } else if state == .locked {
             shield.applyShield(for: selection)
+            errorMessage = nil
+        } else {
+            // Choosing apps is the locking action on the simplified selection screen.
+            lockNow()
         }
     }
 
     // MARK: - Lock / unlock
 
     func lockNow() {
+        guard state != .locked else { return }
+        authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+        guard isAuthorized else {
+            errorMessage = "Allow Screen Time access before locking apps."
+            return
+        }
         guard hasSelection else {
             errorMessage = "Choose at least one app to lock."
             return

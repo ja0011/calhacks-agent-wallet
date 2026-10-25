@@ -1,132 +1,177 @@
-//
-//  UnlockView.swift
-//  Agentwallet
-//
-
 import FamilyControls
+import ManagedSettings
 import SwiftUI
 
 struct UnlockView: View {
     @Environment(LockViewModel.self) private var viewModel
-    @Environment(ChatViewModel.self) private var wallet
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isPickerPresented = false
+    @State private var isRequestingAuthorization = false
 
     var body: some View {
         @Bindable var viewModel = viewModel
 
         NavigationStack {
-            List {
-                Section {
-                    LockStatusView(state: viewModel.state)
-                }
-
-                if !viewModel.isAuthorized {
-                    Section {
-                        Text("Screen Time access is needed to lock apps.")
-                            .foregroundStyle(.secondary)
-                        Button("Allow Screen Time Access") {
-                            Task { await viewModel.requestAuthorization() }
+            ScrollView {
+                VStack(spacing: 20) {
+                        if !viewModel.isAuthorized {
+                            Text("Allow Screen Time access to choose and lock apps.")
+                                .foregroundStyle(.secondary)
+                            Button {
+                                guard !isRequestingAuthorization else { return }
+                                isRequestingAuthorization = true
+                                Task {
+                                    await viewModel.requestAuthorization()
+                                    isRequestingAuthorization = false
+                                }
+                            } label: {
+                                HStack {
+                                    if isRequestingAuthorization { ProgressView() }
+                                    Text(viewModel.authorizationStatus == .denied ? "Request access again" : "Allow Screen Time access")
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                            .disabled(isRequestingAuthorization)
+                        }
+                    Card {
+                        HStack(spacing: 12) {
+                            HomeIconTile(symbol: "square.grid.2x2.fill")
+                            Text("Apps to lock").font(.headline)
+                        }
+                        SelectedAppsSummary(selection: viewModel.selection)
+                        if viewModel.hasSelection {
+                            SelectedActivityList(selection: viewModel.selection)
+                        }
+                        Button {
+                            isPickerPresented = true
+                        } label: {
+                            Label("Choose apps", systemImage: "plus")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .tint(SpendyHomeStyle.purple)
+                        .disabled(!viewModel.isAuthorized || isRequestingAuthorization)
+                        if !viewModel.hasSelection {
+                            Text("Choose at least one app, category, or website to lock.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if let error = viewModel.errorMessage {
+                        Card {
+                            Label(error, systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(.red)
                         }
                     }
                 }
-
-                Section("Apps to lock") {
-                    Button("Choose Apps…") { isPickerPresented = true }
-                        .disabled(!viewModel.isAuthorized)
-                    Text(selectionSummary)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section {
-                    Button("Lock Now", systemImage: "lock.fill") {
-                        viewModel.lockNow()
-                    }
-                    .disabled(!viewModel.isAuthorized || !viewModel.hasSelection || viewModel.state == .locked)
-
-                    UnlockPaymentButtons()
-                    WalletLimitsText()
-                }
-
-                if let error = viewModel.errorMessage {
-                    Section {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
-            .navigationTitle("Unlock")
-            .task { await wallet.refreshWallet() }
+            .background(SpendyHomeStyle.background.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                SpendyHeader()
+            }
+            .foregroundStyle(SpendyHomeStyle.ink)
+            .tint(SpendyHomeStyle.orange)
+            .environment(\.colorScheme, .light)
             .familyActivityPicker(isPresented: $isPickerPresented, selection: $viewModel.selection)
-            .onChange(of: viewModel.selection) {
-                viewModel.selectionChanged()
+            .onChange(of: viewModel.selection) { viewModel.selectionChanged() }
+            .onChange(of: scenePhase) {
+                if scenePhase == .active { viewModel.refresh() }
             }
+            .onAppear { viewModel.refresh() }
         }
     }
 
-    private var selectionSummary: String {
-        let apps = viewModel.selection.applicationTokens.count
-        let categories = viewModel.selection.categoryTokens.count
-        let sites = viewModel.selection.webDomainTokens.count
-        if apps + categories + sites == 0 { return "Nothing selected" }
-        return "\(apps) apps, \(categories) categories, \(sites) websites"
+}
+
+private struct SelectedAppsSummary: View {
+    let selection: FamilyActivitySelection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("\(selection.applicationTokens.count) apps selected", systemImage: "app")
+            Label("\(selection.categoryTokens.count) categories selected", systemImage: "square.stack")
+            Label("\(selection.webDomainTokens.count) websites selected", systemImage: "globe")
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
     }
 }
 
-/// Large lock indicator with a live countdown while temporarily unlocked.
-private struct LockStatusView: View {
-    let state: LockViewModel.LockState
+/// Tokens are opaque: system labels resolve their names and icons without exposing
+/// that private information to the app. Keep plain text so a failed system label
+/// never leaves an unidentifiable selection.
+private struct SelectedActivityList: View {
+    let selection: FamilyActivitySelection
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: iconName)
-                .font(.system(size: 56))
-                .foregroundStyle(color)
-                .contentTransition(.symbolEffect(.replace))
-            Text(title)
-                .font(.title2.bold())
-
-            if case .temporarilyUnlocked(let until) = state {
-                // Redraws every second; the view model handles the actual re-lock.
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let remaining = max(0, until.timeIntervalSince(context.date))
-                    Text("Re-locks in \(Duration.seconds(remaining).formatted(.time(pattern: .minuteSecond)))")
-                        .font(.title3.monospacedDigit())
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(selection.applicationTokens.sorted { $0.hashValue < $1.hashValue }.enumerated(),
+                    id: \.element) { index, token in
+                SelectedActivityRow(fallback: "Selected app \(index + 1)") {
+                    Label(token)
+                }
+            }
+            if !selection.categoryTokens.isEmpty {
+                Text("Categories").font(.subheadline.weight(.semibold))
+                ForEach(selection.categoryTokens.sorted { $0.hashValue < $1.hashValue }.enumerated(),
+                        id: \.element) { index, token in
+                    SelectedActivityRow(fallback: "Selected category \(index + 1)") {
+                        Label(token)
+                    }
+                }
+            }
+            if !selection.webDomainTokens.isEmpty {
+                Text("Websites").font(.subheadline.weight(.semibold))
+                ForEach(selection.webDomainTokens.sorted { $0.hashValue < $1.hashValue }.enumerated(),
+                        id: \.element) { index, token in
+                    SelectedActivityRow(fallback: "Selected website \(index + 1)") {
+                        Label(token)
+                    }
                 }
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical)
     }
+}
 
-    private var iconName: String {
-        state == .locked ? "lock.fill" : "lock.open.fill"
-    }
+private struct SelectedActivityRow<Content: View>: View {
+    let fallback: String
+    @ViewBuilder var content: Content
 
-    private var color: Color {
-        switch state {
-        case .locked: .red
-        case .temporarilyUnlocked: .orange
-        case .unlocked: .green
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            content
+                .labelStyle(.titleAndIcon)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(fallback)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-    }
-
-    private var title: String {
-        switch state {
-        case .locked: "Locked"
-        case .temporarilyUnlocked: "Temporarily unlocked"
-        case .unlocked: "Not locked"
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 #Preview {
-    UnlockView()
-        .environment(LockViewModel())
-        .environment(ChatViewModel())
+    UnlockView().environment(LockViewModel())
 }
 
-/// Shared actions keep Home and the Unlock tab on the same payment flow.
+#Preview("App locking — larger text") {
+    UnlockView()
+        .environment(LockViewModel())
+        .environment(\.dynamicTypeSize, .accessibility3)
+}
+
+/// Home payment actions use the existing shared checkout and unlock flow.
 struct UnlockPaymentButtons: View {
     @Environment(LockViewModel.self) private var lock
     @Environment(ChatViewModel.self) private var wallet

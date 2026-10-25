@@ -9,7 +9,7 @@ import Foundation
 enum Config {
     /// Base URL of the local agent server. On the iOS Simulator, `localhost` resolves to the Mac.
     /// On a real iPhone, change this to the Mac's LAN address, e.g. "http://192.168.1.20:3000".
-    static let serverURL =  "https://occurring-ownership-penguin-drinks.trycloudflare.com"//"https://admissions-writer-solve-scan.trycloudflare.com"///"http://10.0.11.51:3000"" http://localhost:3000"
+    static let serverURL =  "https://capacity-kingdom-madonna-vocabulary.trycloudflare.com"//"https://admissions-writer-solve-scan.trycloudflare.com"///"http://10.0.11.51:3000"" http://localhost:3000"
 
     /// Unlock endpoint, called by the Unlock tab.
     static let unlockURL = URL(string: serverURL)?.appending(path: "api/unlock")

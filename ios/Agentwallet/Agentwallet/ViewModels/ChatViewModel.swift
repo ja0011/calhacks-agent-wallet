@@ -13,6 +13,7 @@ final class ChatViewModel {
     var messages: [ChatMessage] = []
     var draft: String = ""
     var isLoading = false
+    private(set) var catalogItems: [CatalogItem] = []
 
     var balance: String = "—"
     var purchases: [Purchase] = [] { didSet { rebuildHistory() } }
@@ -20,6 +21,7 @@ final class ChatViewModel {
     var unlockPriceText: String?
     var limits: WalletResponse.Limits?
     var bankBalance: String?
+    var walletAddress: String?
     /// "activity" from GET /api/wallet; nil if the server doesn't send it.
     var activity: [ActivityItem]? { didSet { rebuildHistory() } }
     private(set) var history: [ActivityItem] = []
@@ -38,19 +40,27 @@ final class ChatViewModel {
         !isLoading && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    func send() async {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    func send(suggestion: String? = nil) async {
+        let text = (suggestion ?? draft).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isLoading else { return }
 
-        draft = ""
+        if suggestion == nil { draft = "" }
         messages.append(ChatMessage(role: .user, text: text))
         isLoading = true
         defer { isLoading = false }
 
         do {
+            // The server returns cumulative purchases without transaction IDs.
+            // A fresh baseline prevents historical purchases becoming new receipts.
+            let baseline = try? await client.fetchWallet().purchases
             let response = try await client.sendChat(message: text)
-            messages.append(ChatMessage(role: .agent, text: response.reply))
+            let receipts = baseline.map { Self.newPurchases(response.purchases, since: $0) } ?? []
+            messages.append(ChatMessage(role: .agent, text: response.reply, receipts: receipts))
+            if baseline == nil && !response.purchases.isEmpty {
+                messages.append(ChatMessage(role: .error, text: "Receipt details couldn't be verified. Check your wallet history before retrying a purchase."))
+            }
             refreshGeneration += 1
+            if let items = response.items { catalogItems = items }
             balance = response.balance ?? "—"
             bankBalance = response.bank?.balance
             purchases = response.purchases
@@ -58,6 +68,20 @@ final class ChatViewModel {
             await refreshAfterMoneyMovement()
         } catch {
             messages.append(ChatMessage(role: .error, text: "Request failed: \(error.localizedDescription)"))
+        }
+    }
+
+    /// Multiset subtraction handles repeated purchases with identical names and amounts.
+    static func newPurchases(_ purchases: [Purchase], since baseline: [Purchase]) -> [Purchase] {
+        var remaining = baseline
+        return purchases.filter { purchase in
+            if let index = remaining.firstIndex(where: {
+                $0.item == purchase.item && $0.amount == purchase.amount && $0.method == purchase.method
+            }) {
+                remaining.remove(at: index)
+                return false
+            }
+            return true
         }
     }
 
@@ -113,6 +137,8 @@ final class ChatViewModel {
         do {
             let wallet = try await client.fetchWallet()
             guard generation == refreshGeneration else { return }
+            catalogItems = wallet.items ?? []
+            walletAddress = wallet.walletAddress
             unlockPriceText = wallet.unlockPriceText
             limits = wallet.limits
             balance = wallet.balance ?? "—"

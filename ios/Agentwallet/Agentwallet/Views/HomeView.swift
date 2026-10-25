@@ -16,7 +16,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
                     if wallet.isRefreshingWallet {
                         HStack(spacing: 6) {
                             ProgressView().controlSize(.small)
@@ -42,11 +42,20 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding()
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Home")
-            .navigationBarTitleDisplayMode(.large)
+            .background(SpendyHomeStyle.background.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                SpendyHeader()
+            }
+            .foregroundStyle(SpendyHomeStyle.ink)
+            .tint(SpendyHomeStyle.orange)
+            .environment(\.colorScheme, .light)
             .refreshable { await wallet.refreshWallet() }
             .task { await wallet.refreshWallet() }
         }
@@ -59,7 +68,7 @@ private struct LockCard: View {
     @Binding var selectedTab: AppTab
     @Environment(LockViewModel.self) private var lock
 
-    private static let valueFont = Font.system(size: 44, weight: .bold, design: .rounded)
+    private static let valueFont = Font.system(.largeTitle, design: .rounded, weight: .bold)
 
     var body: some View {
         Card {
@@ -87,9 +96,10 @@ private struct LockCard: View {
 
     private var notSetUp: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Screen Time lock")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                HomeIconTile(symbol: "lock.fill")
+                Text("App lock").font(.headline)
+            }
             Text("No apps locked yet")
                 .font(.title2.bold())
             Text("Pick the apps you can't put down.")
@@ -126,6 +136,7 @@ private struct LockCard: View {
             AppChips(selection: lock.selection)
 
             UnlockPaymentButtons()
+                .controlSize(.large)
         }
     }
 
@@ -166,14 +177,18 @@ private struct LockCard: View {
     }
 
     private func header(status: String, icon: String, color: Color) -> some View {
-        HStack {
-            Text("Screen Time lock")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Label(status, systemImage: icon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(color)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                HomeIconTile(symbol: icon)
+                Text("App lock").font(.headline)
+                Spacer()
+                Text(status).font(.subheadline.weight(.semibold)).foregroundStyle(color)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                HomeIconTile(symbol: icon)
+                Text("App lock").font(.headline)
+                Text(status).font(.subheadline.weight(.semibold)).foregroundStyle(color)
+            }
         }
     }
 
@@ -205,11 +220,19 @@ private struct AppChips: View {
 
     var body: some View {
         let chips = chips
-        HStack(spacing: 8) {
+        ViewThatFits(in: .horizontal) {
+            chipList(chips, vertical: false)
+            chipList(chips, vertical: true)
+        }
+    }
+
+    private func chipList(_ chips: [Chip], vertical: Bool) -> some View {
+        let layout = vertical ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
             ForEach(chips.prefix(2), id: \.self) { chip in
                 label(for: chip)
                     .font(.caption)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(Color(.tertiarySystemFill), in: .capsule)
@@ -241,10 +264,10 @@ private struct MoneyCard: View {
 
     var body: some View {
         Card {
-            MoneyRow(icon: "building.columns.fill", title: "Bank", subtitle: "Checking, simulated",
+            HomeMoneyRow(icon: "building.columns.fill", title: "Bank", subtitle: "Checking, simulated",
                      amount: wallet.bankBalance ?? "-")
             Divider()
-            MoneyRow(icon: "wallet.bifold.fill", title: "USDC wallet", subtitle: "Base Sepolia testnet",
+            HomeMoneyRow(icon: "wallet.bifold.fill", title: "USDC wallet", subtitle: "Base Sepolia testnet",
                      amount: wallet.balance)
         }
     }
@@ -284,8 +307,7 @@ private struct ActivityCard: View {
     var body: some View {
         Card {
             Text("Recent activity")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.headline)
 
             let items = wallet.recentActivity
             if items.isEmpty {
@@ -293,7 +315,7 @@ private struct ActivityCard: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(items) { item in
-                    ActivityRow(item: item)
+                    HomeActivityRow(item: item)
                 }
             }
         }
@@ -302,17 +324,17 @@ private struct ActivityCard: View {
 
 // MARK: - Card container
 
-/// Rounded 12pt card used by every section on Home.
-private struct Card<Content: View>: View {
+/// Home cards grow with their content and Dynamic Type.
+struct Card<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 20) {
             content
         }
-        .padding(16)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+        .background(.white, in: .rect(cornerRadius: 24))
     }
 }
 
@@ -320,7 +342,7 @@ private struct Card<Content: View>: View {
     HomeView(selectedTab: .constant(.home))
         .environment(ChatViewModel())
         .environment(LockViewModel())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }
 
 struct ActivityRow: View {
@@ -339,5 +361,140 @@ struct ActivityRow: View {
                 .monospacedDigit()
                 .foregroundStyle(item.isIncoming ? Color.green : Color.primary)
         }
+    }
+}
+
+enum SpendyHomeStyle {
+    static let background = Color(red: 247 / 255, green: 241 / 255, blue: 232 / 255)
+    static let ink = Color(red: 31 / 255, green: 31 / 255, blue: 31 / 255)
+    static let purple = Color(red: 111 / 255, green: 95 / 255, blue: 247 / 255)
+    static let orange = Color(red: 255 / 255, green: 95 / 255, blue: 45 / 255)
+}
+
+struct SpendyHomeAvatar: View {
+    @ScaledMetric(relativeTo: .title3) private var size = 40
+
+    var body: some View {
+        Image(systemName: "person.fill")
+            .font(.title3)
+            .foregroundStyle(SpendyHomeStyle.purple)
+            .frame(width: size, height: size)
+            .background(.white, in: .circle)
+            .accessibilityLabel("Profile placeholder")
+    }
+}
+
+struct HomeIconTile: View {
+    let symbol: String
+    @ScaledMetric(relativeTo: .title3) private var size = 48
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(SpendyHomeStyle.purple, in: .rect(cornerRadius: 15))
+            .accessibilityHidden(true)
+    }
+}
+
+struct HomeMoneyRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let amount: String
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
+        layout {
+            HomeIconTile(symbol: icon)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            Text(amount)
+                .font(.title2.weight(.bold))
+                .monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.numericText())
+                .animation(.easeInOut(duration: 0.25), value: amount)
+        }
+    }
+}
+
+struct HomeActivityRow: View {
+    let item: ActivityItem
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
+        layout {
+            HomeIconTile(symbol: item.isIncoming ? "arrow.down.left" : "arrow.up.right")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.label).font(.subheadline.weight(.semibold))
+                Text(item.method).font(.caption).foregroundStyle(.secondary)
+            }
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            Text(item.signedAmount)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(item.isIncoming ? Color.green : SpendyHomeStyle.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+#Preview("Home — larger text") {
+    HomeView(selectedTab: .constant(.home))
+        .environment(ChatViewModel())
+        .environment(LockViewModel())
+        .environment(\.dynamicTypeSize, .accessibility3)
+}
+
+struct SpendyHeader: View {
+    private let avatarSize: CGFloat = 32
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                brand
+                Spacer(minLength: 12)
+                SpendyHomeAvatar()
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                brand
+                SpendyHomeAvatar()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: 640)
+        .frame(maxWidth: .infinity)
+        .background(SpendyHomeStyle.background)
+        .environment(\.colorScheme, .light)
+    }
+
+    private var brand: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "person.fill")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .frame(width: avatarSize, height: avatarSize)
+                .background(SpendyHomeStyle.purple, in: .circle)
+                .accessibilityHidden(true)
+            Text("Spendy")
+                .font(.title2.weight(.heavy))
+                .foregroundStyle(SpendyHomeStyle.ink)
+                .fixedSize()
+                .accessibilityAddTraits(.isHeader)
+        }
+        .fixedSize()
     }
 }
