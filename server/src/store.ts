@@ -25,6 +25,7 @@ import {
   getBuyerAddress,
   getHeld,
   getPurchases,
+  getVault,
   resetBank,
 } from "./wallet.js";
 
@@ -193,6 +194,7 @@ app.get("/api/wallet", async (_req, res) => {
       items: listCatalog(),
       bank: getBank(),
       activity: getActivity(),
+      vault: getVault(),
       unlockPriceText,
       limits: {
         perPaymentText: formatUsd(SPEND_PER_PAYMENT_CENTS),

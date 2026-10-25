@@ -87,6 +87,32 @@ function recordActivity(entry: Omit<ActivityEntry, "at">) {
   persist();
 }
 
+const VAULT_LOCK_MS = 14 * 24 * 60 * 60 * 1000;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export const getVault = () => {
+  const unlocks = activity
+    .filter((entry) => entry.label === "Unlock")
+    .sort((a, b) => a.at.localeCompare(b.at));
+  if (unlocks.length === 0) {
+    return { lockedTotal: null, entries: [] as const };
+  }
+  const now = Date.now();
+  const entries = unlocks.map((entry) => {
+    const lockedAt = new Date(entry.at);
+    const releasesAt = new Date(lockedAt.getTime() + VAULT_LOCK_MS);
+    const daysLeft = Math.max(0, Math.floor((releasesAt.getTime() - now) / MS_PER_DAY));
+    return {
+      amount: formatUsd(entry.amountCents),
+      lockedAt: lockedAt.toISOString(),
+      releasesAt: releasesAt.toISOString(),
+      daysLeft,
+    };
+  });
+  const lockedTotalCents = unlocks.reduce((sum, entry) => sum + entry.amountCents, 0);
+  return { lockedTotal: formatUsd(lockedTotalCents), entries };
+};
+
 export const getBank = () => ({ balance: formatBankUsd(bankCents) });
 export const getActivity = () =>
   [...activity]

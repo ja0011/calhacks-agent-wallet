@@ -27,6 +27,9 @@ struct HomeView: View {
                     }
 
                     LockCard(selectedTab: $selectedTab)
+                    if let vault = wallet.vault, !vault.entries.isEmpty {
+                        TimeVaultCard(vault: vault)
+                    }
                     MoneyCard()
                     ActivityCard()
 
@@ -496,5 +499,69 @@ struct SpendyHeader: View {
                 .accessibilityAddTraits(.isHeader)
         }
         .fixedSize()
+    }
+}
+
+private struct TimeVaultCard: View {
+    let vault: TimeVault
+
+    var body: some View {
+        Card {
+            HStack(spacing: 12) {
+                HomeIconTile(symbol: "lock.square.fill")
+                Text("Time vault").font(.headline)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Locked away")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(vault.lockedTotal ?? "—")
+                    .font(.largeTitle.bold())
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.25), value: vault.lockedTotal)
+                Text("\(vault.entries.count) unlocks so far")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(vault.entries.prefix(5)) { entry in
+                TimeVaultEntryRow(entry: entry)
+            }
+            if vault.entries.count > 5 {
+                Text("+\(vault.entries.count - 5) more")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text("In the full product, each unlock payment is held by a smart contract for 2 weeks. Here it's simulated.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct TimeVaultEntryRow: View {
+    let entry: TimeVault.Entry
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+        layout {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.amount)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                Text("locked \(TimeVault.Entry.displayDate(entry.lockedAt)) · returns \(TimeVault.Entry.displayDate(entry.releasesAt))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            Text("\(entry.daysLeft) days left")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(SpendyHomeStyle.purple)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

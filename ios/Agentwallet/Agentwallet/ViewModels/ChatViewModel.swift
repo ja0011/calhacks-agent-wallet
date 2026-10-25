@@ -22,6 +22,7 @@ final class ChatViewModel {
     var limits: WalletResponse.Limits?
     var bankBalance: String?
     var walletAddress: String?
+    var vault: TimeVault?
     /// "activity" from GET /api/wallet; nil if the server doesn't send it.
     var activity: [ActivityItem]? { didSet { rebuildHistory() } }
     private(set) var history: [ActivityItem] = []
@@ -138,6 +139,7 @@ final class ChatViewModel {
             let wallet = try await client.fetchWallet()
             guard generation == refreshGeneration else { return }
             catalogItems = wallet.items ?? []
+            vault = wallet.vault
             walletAddress = wallet.walletAddress
             unlockPriceText = wallet.unlockPriceText
             limits = wallet.limits

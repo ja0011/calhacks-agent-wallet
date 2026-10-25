@@ -43,6 +43,7 @@ struct WalletResponse: Codable {
     }
 
     var items: [CatalogItem]? = nil
+    var vault: TimeVault? = nil
     let walletAddress: String?
     let unlockPriceText: String
     let limits: Limits
@@ -69,5 +70,31 @@ enum WalletAddressDisplay {
         guard address.count == 42, address.hasPrefix("0x"),
               address.dropFirst(2).allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
         return URL(string: "https://sepolia.basescan.org/address/")?.appendingPathComponent(address)
+    }
+}
+
+struct TimeVault: Codable {
+    let lockedTotal: String?
+    let entries: [Entry]
+
+    struct Entry: Codable, Identifiable {
+        var id = UUID()
+        let amount: String
+        let lockedAt: String
+        let releasesAt: String
+        let daysLeft: Int
+
+        private enum CodingKeys: String, CodingKey {
+            case amount, lockedAt, releasesAt, daysLeft
+        }
+
+        static func displayDate(_ value: String) -> String {
+            let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+            let standard = Date.ISO8601FormatStyle()
+            guard let date = (try? fractional.parse(value)) ?? (try? standard.parse(value)) else {
+                return "Date unavailable"
+            }
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
     }
 }
